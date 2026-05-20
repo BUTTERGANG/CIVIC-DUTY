@@ -1,0 +1,54 @@
+[
+  {
+    "id": "z1",
+    "filed_date": "2023-09-01T10:00:00Z",
+    "hearing_date": "2023-10-20T13:00:00Z",
+    "address": "123 Main St, Indianapolis, IN",
+    "lat": 39.7684,
+    "lng": -86.1581,
+    "from_zone": "C-1",
+    "to_zone": "C-3",
+    "applicant": "John Doe Dev",
+    "status": "scheduled",
+    "description": "Rezone existing commercial property to allow a gas station."
+  },
+  {
+    "id": "z2",
+    "filed_date": "2023-09-15T09:00:00Z",
+    "hearing_date": "2023-10-25T13:00:00Z",
+    "address": "456 Broad Ave, Indianapolis, IN",
+    "lat": 39.8000,
+    "lng": -86.1500,
+    "from_zone": "R-1",
+    "to_zone": "C-1",
+    "applicant": "Jane Smith",
+    "status": "approved",
+    "description": "Convert residential property to a small office."
+  },
+  {
+    "id": "z3",
+    "filed_date": "2023-10-05T14:00:00Z",
+    "hearing_date": null,
+    "address": "1000 Fall Creek Pkwy, Indianapolis, IN",
+    "lat": 39.8150,
+    "lng": -86.1600,
+    "from_zone": "C-4",
+    "to_zone": "SU-2",
+    "applicant": "City Hospital",
+    "status": "filed",
+    "description": "Special use zoning for hospital expansion."
+  },
+  {
+    "id": "z4",
+    "filed_date": "2023-08-10T11:00:00Z",
+    "hearing_date": "2023-09-10T13:00:00Z",
+    "address": "8800 E 21st St, Indianapolis, IN",
+    "lat": 39.7960,
+    "lng": -86.0120,
+    "from_zone": "D-A",
+    "to_zone": "D-3",
+    "applicant": "Subdivision Builders Inc",
+    "status": "denied",
+    "description": "Agricultural rezone to high density residential."
+  }
+]

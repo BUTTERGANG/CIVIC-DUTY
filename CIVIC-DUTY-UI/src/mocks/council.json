@@ -1,0 +1,52 @@
+[
+  {
+    "id": "c1",
+    "date": "2023-10-15T18:00:00Z",
+    "title": "Resolution 55 - Park Funding",
+    "summary": "Appropriates $5M for municipal park renovations and playground additions.",
+    "status": "passed",
+    "votes": { "yes": 20, "no": 5, "abstain": 0 },
+    "tags": ["parks", "budget"],
+    "documents": [{ "label": "Full Text", "url": "#" }]
+  },
+  {
+    "id": "c2",
+    "date": "2023-10-16T18:00:00Z",
+    "title": "Ordinance 12 - New Zoning Area",
+    "summary": "Re-zones Broad Ripple avenue to allow mixed-use medium density.",
+    "status": "pending",
+    "votes": { "yes": 0, "no": 0, "abstain": 0 },
+    "tags": ["zoning", "development"],
+    "documents": [{ "label": "Map PDF", "url": "#" }]
+  },
+  {
+    "id": "c3",
+    "date": "2023-09-02T18:00:00Z",
+    "title": "Ordinance 8 - Nightclub Restrictions",
+    "summary": "Limits operating hours of establishments in downtown sector.",
+    "status": "failed",
+    "votes": { "yes": 10, "no": 15, "abstain": 0 },
+    "tags": ["business", "nightlife"],
+    "documents": [{ "label": "Hearing Transcript", "url": "#" }]
+  },
+  {
+    "id": "c4",
+    "date": "2023-08-20T18:00:00Z",
+    "title": "Resolution 42 - Pot Hole Repair Bond",
+    "summary": "Authorizes issuance of municipal bonds for street repairs.",
+    "status": "passed",
+    "votes": { "yes": 25, "no": 0, "abstain": 0 },
+    "tags": ["infrastructure", "budget"],
+    "documents": [{ "label": "Bond Filing", "url": "#" }]
+  },
+  {
+    "id": "c5",
+    "date": "2023-11-01T18:00:00Z",
+    "title": "Proposal 102 - Mayoral Veto Override",
+    "summary": "Vote to override mayor veto on public safety budget.",
+    "status": "tabled",
+    "votes": { "yes": 0, "no": 0, "abstain": 0 },
+    "tags": ["budget", "public-safety"],
+    "documents": []
+  }
+]

@@ -1,0 +1,47 @@
+[
+  {
+    "id": "a1",
+    "created_at": "2023-10-16T18:05:00Z",
+    "module": "zoning",
+    "trigger": "Distance < 2 miles from Home",
+    "summary": "New zoning change filed near 456 Broad Ave.",
+    "read": false,
+    "link_id": "z2"
+  },
+  {
+    "id": "a2",
+    "created_at": "2023-10-15T18:05:00Z",
+    "module": "council",
+    "trigger": "Keyword 'parks'",
+    "summary": "Resolution 55 matches your 'parks' keyword.",
+    "read": true,
+    "link_id": "c1"
+  },
+  {
+    "id": "a3",
+    "created_at": "2023-10-01T08:05:00Z",
+    "module": "court",
+    "trigger": "Party Name 'Acme'",
+    "summary": "Acme Construction involved in new civil suit.",
+    "read": false,
+    "link_id": "ct1"
+  },
+  {
+    "id": "a4",
+    "created_at": "2023-10-12T10:05:00Z",
+    "module": "campaign",
+    "trigger": "Amount > 5000",
+    "summary": "Acme Corp donated $10,000 to Charlie Brown.",
+    "read": false,
+    "link_id": "cp2"
+  },
+  {
+    "id": "a5",
+    "created_at": "2023-10-01T08:05:00Z",
+    "module": "bids",
+    "trigger": "Keyword 'Street'",
+    "summary": "Street Paving Downtown phase 2 bid opened.",
+    "read": true,
+    "link_id": "b1"
+  }
+]

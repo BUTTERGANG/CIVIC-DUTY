@@ -1,0 +1,52 @@
+[
+  {
+    "id": "cp1",
+    "filed_date": "2023-10-15T09:00:00Z",
+    "candidate": "Alice Walker",
+    "office": "Mayor",
+    "donor_name": "Bob Builder",
+    "donor_type": "individual",
+    "amount": 5000.00,
+    "cycle": "2023 Election"
+  },
+  {
+    "id": "cp2",
+    "filed_date": "2023-10-12T10:00:00Z",
+    "candidate": "Charlie Brown",
+    "office": "City Council",
+    "donor_name": "Acme Corp",
+    "donor_type": "business",
+    "amount": 10000.00,
+    "cycle": "2023 Election"
+  },
+  {
+    "id": "cp3",
+    "filed_date": "2023-09-20T11:00:00Z",
+    "candidate": "Alice Walker",
+    "office": "Mayor",
+    "donor_name": "Teachers Union PAC",
+    "donor_type": "pac",
+    "amount": 25000.00,
+    "cycle": "2023 Election"
+  },
+  {
+    "id": "cp4",
+    "filed_date": "2023-09-25T14:00:00Z",
+    "candidate": "Diana Prince",
+    "office": "City Council",
+    "donor_name": "Diana Prince",
+    "donor_type": "self",
+    "amount": 2000.00,
+    "cycle": "2023 Election"
+  },
+  {
+    "id": "cp5",
+    "filed_date": "2023-10-01T09:00:00Z",
+    "candidate": "Charlie Brown",
+    "office": "City Council",
+    "donor_name": "Local Business PAC",
+    "donor_type": "pac",
+    "amount": 5000.00,
+    "cycle": "2023 Election"
+  }
+]

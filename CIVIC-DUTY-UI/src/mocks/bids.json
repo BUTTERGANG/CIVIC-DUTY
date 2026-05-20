@@ -1,0 +1,50 @@
+[
+  {
+    "id": "b1",
+    "posted_date": "2023-10-01T08:00:00Z",
+    "close_date": "2023-11-01T17:00:00Z",
+    "agency": "DPW",
+    "title": "Street Paving Downtown phase 2",
+    "category": "infrastructure",
+    "value_estimate": 750000,
+    "status": "open",
+    "awarded_to": null,
+    "documents": [{ "label": "RFP Specs", "url": "#" }]
+  },
+  {
+    "id": "b2",
+    "posted_date": "2023-09-15T08:00:00Z",
+    "close_date": "2023-10-15T17:00:00Z",
+    "agency": "Parks and Rec",
+    "title": "Library Roof Repair",
+    "category": "maintenance",
+    "value_estimate": 150000,
+    "status": "awarded",
+    "awarded_to": "Apex Roofing LLC",
+    "documents": [{ "label": "Award Notice", "url": "#" }]
+  },
+  {
+    "id": "b3",
+    "posted_date": "2023-10-10T08:00:00Z",
+    "close_date": "2023-11-10T17:00:00Z",
+    "agency": "IMPD",
+    "title": "Fleet Vehicle Replacements",
+    "category": "equipment",
+    "value_estimate": 2000000,
+    "status": "open",
+    "awarded_to": null,
+    "documents": [{ "label": "Vehicle Specs", "url": "#" }]
+  },
+  {
+    "id": "b4",
+    "posted_date": "2023-08-01T08:00:00Z",
+    "close_date": "2023-09-01T17:00:00Z",
+    "agency": "Information Technology",
+    "title": "Server Migration Services",
+    "category": "services",
+    "value_estimate": 50000,
+    "status": "closed",
+    "awarded_to": null,
+    "documents": []
+  }
+]

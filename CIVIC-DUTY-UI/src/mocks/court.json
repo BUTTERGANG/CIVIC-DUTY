@@ -1,0 +1,58 @@
+[
+  {
+    "id": "ct1",
+    "filed_date": "2023-10-01T08:00:00Z",
+    "case_number": "49D01-2301-PL-123456",
+    "title": "City v. Acme Construction",
+    "case_type": "civil",
+    "status": "active",
+    "parties": [
+      { "role": "plaintiff", "name": "City of Indianapolis" },
+      { "role": "defendant", "name": "Acme Construction" }
+    ],
+    "next_hearing": "2023-11-01T09:00:00Z",
+    "judge": "Hon. Judy"
+  },
+  {
+    "id": "ct2",
+    "filed_date": "2023-09-15T08:00:00Z",
+    "case_number": "49D04-2309-SC-445566",
+    "title": "Smith v. Jones",
+    "case_type": "small_claims",
+    "status": "closed",
+    "parties": [
+      { "role": "plaintiff", "name": "John Smith" },
+      { "role": "defendant", "name": "Bill Jones" }
+    ],
+    "next_hearing": null,
+    "judge": "Magistrate Roberts"
+  },
+  {
+    "id": "ct3",
+    "filed_date": "2023-10-10T08:00:00Z",
+    "case_number": "49G01-2310-F6-778899",
+    "title": "State of Indiana v. Doe",
+    "case_type": "criminal",
+    "status": "active",
+    "parties": [
+      { "role": "plaintiff", "name": "State of Indiana" },
+      { "role": "defendant", "name": "Jane Doe" }
+    ],
+    "next_hearing": "2023-10-20T13:30:00Z",
+    "judge": "Hon. Davis"
+  },
+  {
+    "id": "ct4",
+    "filed_date": "2023-08-05T08:00:00Z",
+    "case_number": "49D02-2308-PL-111222",
+    "title": "Local Store v. City Zoning Board",
+    "case_type": "civil",
+    "status": "appealed",
+    "parties": [
+      { "role": "plaintiff", "name": "Local Store LLC" },
+      { "role": "defendant", "name": "City Zoning Board" }
+    ],
+    "next_hearing": "2023-12-01T10:00:00Z",
+    "judge": "Hon. Miller"
+  }
+]
