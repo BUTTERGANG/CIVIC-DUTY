@@ -13,6 +13,7 @@ router.get('/summary', async (req, res) => {
     const [
       councilCount, bidsCount, zoningCount, campaignCount, courtCount,
       incidentsCount, crashesCount, citationsCount, uofCount, serviceCount,
+      parcelsCount, buildingsCount, schoolsCount, parksCount, pollingCount, taxDistrictsCount,
       latestCouncil, latestBid, latestZoning, latestCampaign, latestCourt
     ] = await Promise.all([
       pool.query(`SELECT count(*) FROM council_votes ${cityFilter}`, cityParams),
@@ -26,6 +27,14 @@ router.get('/summary', async (req, res) => {
       pool.query(`SELECT count(*) FROM citations ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM use_of_force ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM service_requests ${cityFilter}`, cityParams),
+      // Hamilton County GIS layers
+      pool.query(`SELECT count(*) FROM parcels ${cityFilter}`, cityParams),
+      pool.query(`SELECT count(*) FROM buildings ${cityFilter}`, cityParams),
+      pool.query(`SELECT count(*) FROM schools ${cityFilter}`, cityParams),
+      pool.query(`SELECT count(*) FROM parks ${cityFilter}`, cityParams),
+      pool.query(`SELECT count(*) FROM polling_locations ${cityFilter}`, cityParams),
+      pool.query(`SELECT count(*) FROM tax_districts ${cityFilter}`, cityParams),
+      // Latest items
       pool.query(`SELECT * FROM council_votes ${cityFilter} ORDER BY scraped_at DESC LIMIT 1`, cityParams),
       pool.query(`SELECT * FROM bids ${cityFilter} ORDER BY scraped_at DESC LIMIT 1`, cityParams),
       pool.query(`SELECT * FROM zoning_changes ${cityFilter} ORDER BY scraped_at DESC LIMIT 1`, cityParams),
@@ -45,6 +54,12 @@ router.get('/summary', async (req, res) => {
         citations: parseInt(citationsCount.rows[0].count, 10),
         useOfForce: parseInt(uofCount.rows[0].count, 10),
         serviceRequests: parseInt(serviceCount.rows[0].count, 10),
+        parcels:   parseInt(parcelsCount.rows[0].count, 10),
+        buildings: parseInt(buildingsCount.rows[0].count, 10),
+        schools:   parseInt(schoolsCount.rows[0].count, 10),
+        parks:     parseInt(parksCount.rows[0].count, 10),
+        polling:   parseInt(pollingCount.rows[0].count, 10),
+        tax_districts: parseInt(taxDistrictsCount.rows[0].count, 10),
       },
       latestItems: {
         council:   latestCouncil.rows[0] || null,

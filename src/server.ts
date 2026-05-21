@@ -22,6 +22,12 @@ import crashesRouter from './routes/crashes';
 import citationsRouter from './routes/citations';
 import useOfForceRouter from './routes/use_of_force';
 import serviceRequestsRouter from './routes/service_requests';
+import parcelsRouter from './routes/parcels';
+import buildingsRouter from './routes/buildings';
+import schoolsRouter from './routes/schools';
+import parksRouter from './routes/parks';
+import pollingRouter from './routes/polling';
+import taxDistrictsRouter from './routes/tax_districts';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -44,6 +50,12 @@ app.use('/api/crashes', crashesRouter);
 app.use('/api/citations', citationsRouter);
 app.use('/api/use-of-force', useOfForceRouter);
 app.use('/api/service-requests', serviceRequestsRouter);
+app.use('/api/parcels', parcelsRouter);
+app.use('/api/buildings', buildingsRouter);
+app.use('/api/schools', schoolsRouter);
+app.use('/api/parks', parksRouter);
+app.use('/api/polling-locations', pollingRouter);
+app.use('/api/tax-districts', taxDistrictsRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });

@@ -31,6 +31,12 @@ const FISHERS_STAT_META = [
   { key: 'zoning',   label: 'Zoning Cases',       color: '#f5a623', link: '/zoning',   bg: 'from-amber-500/[0.08] to-transparent',   border: 'hover:border-amber-500/30' },
   { key: 'campaign', label: 'Campaign Filings',   color: '#a78bfa', link: '/campaign', bg: 'from-violet-500/[0.08] to-transparent',  border: 'hover:border-violet-500/30' },
   { key: 'court',    label: 'Court Cases',        color: '#f04459', link: '/court',    bg: 'from-rose-500/[0.08] to-transparent',    border: 'hover:border-rose-500/30' },
+  { key: 'parcels',  label: 'Parcels',            color: '#10b981', link: '/parcels',  bg: 'from-emerald-500/[0.08] to-transparent', border: 'hover:border-emerald-500/30' },
+  { key: 'buildings',label: 'Buildings',          color: '#06b6d4', link: '/buildings',bg: 'from-cyan-500/[0.08] to-transparent',    border: 'hover:border-cyan-500/30' },
+  { key: 'schools',  label: 'Schools',            color: '#8b5cf6', link: '/schools',  bg: 'from-violet-500/[0.08] to-transparent',  border: 'hover:border-violet-500/30' },
+  { key: 'parks',    label: 'Parks',              color: '#22c55e', link: '/parks',    bg: 'from-green-500/[0.08] to-transparent',   border: 'hover:border-green-500/30' },
+  { key: 'polling',  label: 'Polling Locations',  color: '#f97316', link: '/polling',  bg: 'from-orange-500/[0.08] to-transparent',  border: 'hover:border-orange-500/30' },
+  { key: 'tax_districts', label: 'Tax Districts', color: '#f43f5e', link: '/tax-districts', bg: 'from-rose-500/[0.08] to-transparent', border: 'hover:border-rose-500/30' },
 ] as const;
 
 const INDY_STAT_META = [
@@ -61,6 +67,7 @@ export default function Dashboard() {
   const counts = summary?.counts ?? {
     council: 0, bids: 0, zoning: 0, campaign: 0, court: 0,
     incidents: 0, crashes: 0, citations: 0, useOfForce: 0, serviceRequests: 0,
+    parcels: 0, buildings: 0, schools: 0, parks: 0, polling: 0, tax_districts: 0,
   };
   const recentAlerts = alerts.slice(0, 3);
 
@@ -84,13 +91,13 @@ export default function Dashboard() {
           <p className="text-slate-400 text-lg leading-relaxed max-w-xl">
             {isIndy
               ? `Real-time monitoring of Indianapolis civic activity — council votes, public safety incidents, traffic crashes, citations, use of force, and 311 service requests.`
-              : `Real-time monitoring of Fishers civic activity — council votes, procurement bids, zoning changes, campaign finance, and court filings.`}
+              : `Real-time monitoring of Fishers civic activity — council votes, procurement bids, zoning changes, campaign finance, court filings, parcels, buildings, schools, parks, polling locations, and tax districts.`}
           </p>
         </div>
       </div>
 
       {/* Stat Cards */}
-      <div className={`grid gap-4 ${isIndy ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5'}`}>
+      <div className={`grid gap-4 ${isIndy ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6'}`}>
         {statMeta.map((c, i) => (
           <Link
             key={c.key}

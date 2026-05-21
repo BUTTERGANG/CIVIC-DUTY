@@ -14,6 +14,12 @@ import Zoning from './pages/Zoning';
 import Campaign from './pages/Campaign';
 import Court from './pages/Court';
 import Alerts from './pages/Alerts';
+import Parcels from './pages/Parcels';
+import Buildings from './pages/Buildings';
+import Schools from './pages/Schools';
+import Parks from './pages/Parks';
+import Polling from './pages/Polling';
+import TaxDistricts from './pages/TaxDistricts';
 
 function AppShell() {
   const { user, loading, logout } = useAuth();
@@ -74,6 +80,12 @@ function AppShell() {
           <Route path="/campaign" element={<Campaign />} />
           <Route path="/court" element={<Court />} />
           <Route path="/alerts" element={<Alerts />} />
+          <Route path="/parcels" element={<Parcels />} />
+          <Route path="/buildings" element={<Buildings />} />
+          <Route path="/schools" element={<Schools />} />
+          <Route path="/parks" element={<Parks />} />
+          <Route path="/polling" element={<Polling />} />
+          <Route path="/tax-districts" element={<TaxDistricts />} />
         </Routes>
       </main>
 

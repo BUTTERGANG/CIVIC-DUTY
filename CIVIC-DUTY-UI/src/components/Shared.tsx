@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, CircleUser, Map, TrendingUp, LogOut, Menu, X, ChevronDown } from 'lucide-react';
+import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, CircleUser, Map, TrendingUp, LogOut, Menu, X, ChevronDown, Home, Building2, GraduationCap, Trees, Vote, Landmark as TaxIcon } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useState, useEffect, useRef } from 'react';
@@ -22,6 +22,12 @@ export const ModuleBadge = ({ module }: { module: string }) => {
     citations: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/25',
     useOfForce: 'bg-pink-500/10 text-pink-400 border-pink-500/25',
     serviceRequests: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25',
+    parcels:   'bg-emerald-500/10 text-emerald-400 border-emerald-500/25',
+    buildings: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/25',
+    schools:   'bg-violet-500/10 text-violet-400 border-violet-500/25',
+    parks:     'bg-green-500/10 text-green-400 border-green-500/25',
+    polling:   'bg-orange-500/10 text-orange-400 border-orange-500/25',
+    tax_districts: 'bg-rose-500/10 text-rose-400 border-rose-500/25',
   };
   const dots: Record<string, string> = {
     council:   'bg-emerald-400',
@@ -34,6 +40,12 @@ export const ModuleBadge = ({ module }: { module: string }) => {
     citations: 'bg-yellow-400',
     useOfForce: 'bg-pink-400',
     serviceRequests: 'bg-cyan-400',
+    parcels:   'bg-emerald-400',
+    buildings: 'bg-cyan-400',
+    schools:   'bg-violet-400',
+    parks:     'bg-green-400',
+    polling:   'bg-orange-400',
+    tax_districts: 'bg-rose-400',
   };
   return (
     <span className={cn('badge flex items-center gap-1.5', colors[module] || 'bg-slate-500/10 text-slate-400 border-slate-600/25')}>
@@ -219,6 +231,12 @@ export const NavBar = ({ unreadCount, user, onLogout }: {
     { to: '/zoning', icon: <Map size={16} />, label: 'Zoning' },
     { to: '/campaign', icon: <TrendingUp size={16} />, label: 'Campaign' },
     { to: '/court', icon: <Gavel size={16} />, label: 'Court' },
+    { to: '/parcels', icon: <Home size={16} />, label: 'Parcels' },
+    { to: '/buildings', icon: <Building2 size={16} />, label: 'Buildings' },
+    { to: '/schools', icon: <GraduationCap size={16} />, label: 'Schools' },
+    { to: '/parks', icon: <Trees size={16} />, label: 'Parks' },
+    { to: '/polling', icon: <Vote size={16} />, label: 'Polling' },
+    { to: '/tax-districts', icon: <TaxIcon size={16} />, label: 'Tax Districts' },
   ];
 
   return (

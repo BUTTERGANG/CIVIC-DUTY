@@ -505,6 +505,12 @@ export interface DashboardSummary {
     citations: number;
     useOfForce: number;
     serviceRequests: number;
+    parcels: number;
+    buildings: number;
+    schools: number;
+    parks: number;
+    polling: number;
+    tax_districts: number;
   };
   latestItems: {
     council: CouncilRow | null;
@@ -534,4 +540,144 @@ export interface CityInfo {
 
 export async function fetchCities(): Promise<{ cities: CityInfo[] }> {
   return get<{ cities: CityInfo[] }>('/cities');
+}
+
+// --- Parcels ---
+
+export interface Parcel {
+  id: number;
+  city: string;
+  parcel_id: string;
+  address: string | null;
+  owner_name: string | null;
+  owner_address: string | null;
+  land_use: string | null;
+  zoning: string | null;
+  tax_district: string | null;
+  land_area_sqft: number | null;
+  building_area_sqft: number | null;
+  assessed_value: number | null;
+  last_sale_date: string | null;
+  year_built: number | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchParcels(params: Record<string, string> = {}): Promise<Parcel[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<Parcel[]>(`/parcels?${qs}`);
+}
+
+// --- Buildings ---
+
+export interface Building {
+  id: number;
+  city: string;
+  building_id: string | null;
+  address: string | null;
+  building_type: string | null;
+  year_built: number | null;
+  area_sqft: number | null;
+  levels: number | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchBuildings(params: Record<string, string> = {}): Promise<Building[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<Building[]>(`/buildings?${qs}`);
+}
+
+// --- Schools ---
+
+export interface School {
+  id: number;
+  city: string;
+  name: string;
+  district: string | null;
+  school_type: string | null;
+  address: string | null;
+  grade_levels: string | null;
+  enrollment: number | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchSchools(params: Record<string, string> = {}): Promise<School[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<School[]>(`/schools?${qs}`);
+}
+
+// --- Parks ---
+
+export interface Park {
+  id: number;
+  city: string;
+  name: string;
+  park_type: string | null;
+  address: string | null;
+  area_acres: number | null;
+  features: string | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchParks(params: Record<string, string> = {}): Promise<Park[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<Park[]>(`/parks?${qs}`);
+}
+
+// --- Polling Locations ---
+
+export interface PollingLocation {
+  id: number;
+  city: string;
+  name: string;
+  address: string | null;
+  precinct: string | null;
+  district: string | null;
+  poll_hours: string | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchPollingLocations(params: Record<string, string> = {}): Promise<PollingLocation[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<PollingLocation[]>(`/polling-locations?${qs}`);
+}
+
+// --- Tax Districts ---
+
+export interface TaxDistrict {
+  id: number;
+  city: string;
+  district_code: string | null;
+  district_name: string | null;
+  tax_rate: number | null;
+  net_assessed_value: number | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchTaxDistricts(params: Record<string, string> = {}): Promise<TaxDistrict[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<TaxDistrict[]>(`/tax-districts?${qs}`);
 }
