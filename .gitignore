@@ -8,9 +8,25 @@ node_modules/
 # Build
 dist/
 
-# Env
+# Environment files — NEVER commit
 .env
+.env.local
+.env.*.local
+.env.production
+.env.development
+.env.test
+
+# Secrets & credentials
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
 
 # IDE
 .vscode/
 .idea/
+
+# Logs
+*.log
+logs/
