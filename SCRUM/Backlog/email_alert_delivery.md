@@ -1,6 +1,6 @@
 ---
 title: "Email Alert Delivery"
-status: backlog
+status: sprint
 priority: P1
 project: civic-duty
 type: dev
