@@ -1,6 +1,6 @@
 ---
 title: "Multi-Town: CivicEngage Scraper"
-status: backlog
+status: sprint
 priority: P2
 project: civic-duty
 type: dev
