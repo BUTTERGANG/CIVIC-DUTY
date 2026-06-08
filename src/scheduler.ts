@@ -1,5 +1,6 @@
 // src/scheduler.ts
 import cron from 'node-cron';
+import { pool } from './db';
 import { CouncilScraper } from './scrapers/council';
 import { BidsScraper } from './scrapers/bids';
 import { ZoningScraper } from './scrapers/zoning';
@@ -18,8 +19,24 @@ import { HamCoSchoolsScraper } from './scrapers/hamco_schools';
 import { HamCoParksScraper } from './scrapers/hamco_parks';
 import { HamCoPollingScraper } from './scrapers/hamco_polling';
 
+async function logScrape(
+  source: string,
+  status: 'success' | 'error',
+  recordsUpserted: number = 0,
+  errorMessage?: string
+) {
+  try {
+    await pool.query(
+      `INSERT INTO scraper_log (source, status, records_upserted, error_message)
+       VALUES ($1, $2, $3, $4)`,
+      [source, status, recordsUpserted, errorMessage || null]
+    );
+  } catch (err: any) {
+    console.error('[Scheduler] Failed to log scrape:', err.message);
+  }
+}
+
 export function setupScheduler() {
-  // Fishers scrapers
   const fishersScrapers = {
     council:  new CouncilScraper(),
     bids:     new BidsScraper(),
@@ -27,7 +44,6 @@ export function setupScheduler() {
     campaign: new CampaignScraper(),
   };
 
-  // Indianapolis scrapers
   const indyScrapers = {
     council:         new IndyCouncilScraper(),
     incidents:       new IndyIncidentsScraper(),
@@ -38,13 +54,6 @@ export function setupScheduler() {
     parcels:         new IndyParcelsScraper(),
   };
 
-  // Fishers schedule
-  cron.schedule('0 6 * * *',   () => fishersScrapers.council.run());   // daily 6am
-  cron.schedule('0 7 * * *',   () => fishersScrapers.bids.run());      // daily 7am
-  cron.schedule('0 8 * * *',   () => fishersScrapers.zoning.run());    // daily 8am
-  cron.schedule('0 9 * * 1',   () => fishersScrapers.campaign.run());  // mondays 9am
-
-  // Hamilton County scrapers (covers Fishers, Carmel, Noblesville, Westfield, etc.)
   const hamcoScrapers = {
     parcels:        new HamCoParcelsScraper(),
     buildings:      new HamCoBuildingsScraper(),
@@ -54,22 +63,48 @@ export function setupScheduler() {
     polling:        new HamCoPollingScraper(),
   };
 
-  // Indianapolis schedule (staggered to avoid overloading)
-  cron.schedule('0 10 * * *',  () => indyScrapers.council.run());         // daily 10am
-  cron.schedule('0 11 * * *',  () => indyScrapers.incidents.run());       // daily 11am
-  cron.schedule('0 12 * * *',  () => indyScrapers.crashes.run());         // daily 12pm
-  cron.schedule('0 13 * * *',  () => indyScrapers.citations.run());       // daily 1pm
-  cron.schedule('0 14 * * *',  () => indyScrapers.useOfForce.run());      // daily 2pm
-  cron.schedule('0 15 * * *',  () => indyScrapers.serviceRequests.run()); // daily 3pm
-  cron.schedule('0 2 * * 0',   () => indyScrapers.parcels.run());         // Sundays 2am (large dataset)
+  // Wrapper: run scraper, log result
+  function scheduleWithLogging(
+    cronExpr: string,
+    source: string,
+    run: () => Promise<{ recordsUpserted?: number } | undefined>
+  ) {
+    cron.schedule(cronExpr, async () => {
+      console.log(`[Scheduler] Running ${source} scraper...`);
+      try {
+        const result = await run();
+        const count = result?.recordsUpserted ?? 0;
+        await logScrape(source, 'success', count);
+        console.log(`[Scheduler] ${source} completed: ${count} records`);
+      } catch (err: any) {
+        await logScrape(source, 'error', 0, err.message);
+        console.error(`[Scheduler] ${source} failed:`, err.message);
+      }
+    });
+  }
 
-  // Hamilton County schedule (weekly, staggered — large datasets)
-  cron.schedule('0 3 * * 0',   () => hamcoScrapers.parcels.run());         // Sundays 3am (largest dataset)
-  cron.schedule('0 4 * * 0',   () => hamcoScrapers.buildings.run());       // Sundays 4am
-  cron.schedule('0 5 * * 1',   () => hamcoScrapers.taxDistricts.run());    // Mondays 5am
-  cron.schedule('0 5 * * 2',   () => hamcoScrapers.schools.run());         // Tuesdays 5am
-  cron.schedule('0 5 * * 3',   () => hamcoScrapers.parks.run());           // Wednesdays 5am
-  cron.schedule('0 5 * * 4',   () => hamcoScrapers.polling.run());         // Thursdays 5am
+  // Fishers schedule
+  scheduleWithLogging('0 6 * * *', 'council',     () => fishersScrapers.council.run());
+  scheduleWithLogging('0 7 * * *', 'bids',        () => fishersScrapers.bids.run());
+  scheduleWithLogging('0 8 * * *', 'zoning',      () => fishersScrapers.zoning.run());
+  scheduleWithLogging('0 9 * * 1', 'campaign',    () => fishersScrapers.campaign.run());
+
+  // Indianapolis schedule
+  scheduleWithLogging('0 10 * * *', 'indy_council',               () => indyScrapers.council.run());
+  scheduleWithLogging('0 11 * * *', 'indy_incidents',             () => indyScrapers.incidents.run());
+  scheduleWithLogging('0 12 * * *', 'indy_crashes',               () => indyScrapers.crashes.run());
+  scheduleWithLogging('0 13 * * *', 'indy_citations',             () => indyScrapers.citations.run());
+  scheduleWithLogging('0 14 * * *', 'indy_use_of_force',          () => indyScrapers.useOfForce.run());
+  scheduleWithLogging('0 15 * * *', 'indy_service_requests',      () => indyScrapers.serviceRequests.run());
+  scheduleWithLogging('0 2 * * 0',  'indy_parcels',               () => indyScrapers.parcels.run());
+
+  // Hamilton County schedule
+  scheduleWithLogging('0 3 * * 0', 'hamco_parcels',               () => hamcoScrapers.parcels.run());
+  scheduleWithLogging('0 4 * * 0', 'hamco_buildings',             () => hamcoScrapers.buildings.run());
+  scheduleWithLogging('0 5 * * 1', 'hamco_tax_districts',         () => hamcoScrapers.taxDistricts.run());
+  scheduleWithLogging('0 5 * * 2', 'hamco_schools',               () => hamcoScrapers.schools.run());
+  scheduleWithLogging('0 5 * * 3', 'hamco_parks',                 () => hamcoScrapers.parks.run());
+  scheduleWithLogging('0 5 * * 4', 'hamco_polling',               () => hamcoScrapers.polling.run());
 
   console.log('[Scheduler] Cron jobs configured successfully.');
   console.log(`[Scheduler] Fishers: ${Object.keys(fishersScrapers).length} scrapers`);

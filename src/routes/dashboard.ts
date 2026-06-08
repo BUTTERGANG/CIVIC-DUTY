@@ -21,20 +21,17 @@ router.get('/summary', async (req, res) => {
       pool.query(`SELECT count(*) FROM zoning_changes ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM campaign_contributions ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM court_cases ${cityFilter}`, cityParams),
-      // Indy-specific counts (only when no city filter or city=indy)
       pool.query(`SELECT count(*) FROM incidents ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM crashes ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM citations ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM use_of_force ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM service_requests ${cityFilter}`, cityParams),
-      // Hamilton County GIS layers
       pool.query(`SELECT count(*) FROM parcels ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM buildings ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM schools ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM parks ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM polling_locations ${cityFilter}`, cityParams),
       pool.query(`SELECT count(*) FROM tax_districts ${cityFilter}`, cityParams),
-      // Latest items
       pool.query(`SELECT * FROM council_votes ${cityFilter} ORDER BY scraped_at DESC LIMIT 1`, cityParams),
       pool.query(`SELECT * FROM bids ${cityFilter} ORDER BY scraped_at DESC LIMIT 1`, cityParams),
       pool.query(`SELECT * FROM zoning_changes ${cityFilter} ORDER BY scraped_at DESC LIMIT 1`, cityParams),
@@ -69,6 +66,42 @@ router.get('/summary', async (req, res) => {
         court:     latestCourt.rows[0] || null,
       }
     });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/freshness', async (req, res) => {
+  try {
+    const { city } = req.query;
+    const cityFilter = city ? 'WHERE source = ANY($1)' : '';
+    const cityParams = city ? [[city]] : [];
+
+    const result = await pool.query(
+      `SELECT DISTINCT ON (source)
+         source, run_at AS last_run_at, status, records_upserted, error_message
+       FROM scraper_log
+       ${cityFilter}
+       ORDER BY source, run_at DESC`,
+      cityParams
+    );
+
+    const rows = result.rows.map((row: any) => {
+      const lastRun = row.last_run_at ? new Date(row.last_run_at) : null;
+      const hoursSince = lastRun
+        ? (Date.now() - lastRun.getTime()) / (1000 * 60 * 60)
+        : Infinity;
+      return {
+        source: row.source,
+        last_run_at: row.last_run_at,
+        status: row.status,
+        records_upserted: row.records_upserted,
+        stale: hoursSince > 24 || row.status === 'error',
+        error_message: row.error_message || null,
+      };
+    });
+
+    res.json(rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
