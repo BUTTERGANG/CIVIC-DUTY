@@ -6,7 +6,7 @@ const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { city, tags, from, to, limit = 50, offset = 0 } = req.query;
+    const { q, city, tags, from, to, limit = 50, offset = 0 } = req.query;
     let query = 'SELECT * FROM council_votes WHERE 1=1';
     const params: any[] = [];
 
@@ -25,6 +25,11 @@ router.get('/', async (req, res) => {
     if (tags) {
       params.push(tags);
       query += ` AND $${params.length} = ANY(tags)`;
+    }
+    if (q) {
+      const pattern = `%${q}%`;
+      params.push(pattern);
+      query += ` AND (title ILIKE $${params.length} OR summary ILIKE $${params.length} OR agenda_items::text ILIKE $${params.length})`;
     }
 
     query += ' ORDER BY date DESC';
