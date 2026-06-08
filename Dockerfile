@@ -9,9 +9,8 @@ WORKDIR /app
 
 # Backend deps + build
 COPY package.json package-lock.json* ./
-RUN npm install --no-fund --no-audit --omit=dev
-copy package.json package-lock.json* ./
 RUN npm install --no-fund --no-audit
+
 COPY tsconfig.json ./
 COPY src/ ./src/
 RUN npm run build
@@ -19,6 +18,7 @@ RUN npm run build
 # Frontend deps + build
 COPY CIVIC-DUTY-UI/package.json CIVIC-DUTY-UI/package-lock.json* ./CIVIC-DUTY-UI/
 RUN cd CIVIC-DUTY-UI && npm install --no-fund --no-audit
+
 COPY CIVIC-DUTY-UI/ ./CIVIC-DUTY-UI/
 RUN cd CIVIC-DUTY-UI && npm run build
 
@@ -32,7 +32,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package.json ./
 
-# Copy frontend build output (served as static files by Express or separate)
+# Copy frontend build output
 COPY --from=builder /app/CIVIC-DUTY-UI/dist ./CIVIC-DUTY-UI/dist
 
 # Copy database schema for init
