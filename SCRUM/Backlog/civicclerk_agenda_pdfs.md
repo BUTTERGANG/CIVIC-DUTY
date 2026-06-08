@@ -1,6 +1,6 @@
 ---
 title: "CivicClerk Per-Agenda-Item PDFs"
-status: backlog
+status: sprint
 priority: P3
 project: civic-duty
 type: dev
