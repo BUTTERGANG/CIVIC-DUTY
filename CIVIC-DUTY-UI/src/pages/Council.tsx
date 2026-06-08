@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { ModuleBadge, StatusChip, DocumentList, EmptyState } from '../components/Shared';
 import { Search, SlidersHorizontal, ChevronDown, ChevronRight, FileText, Clock } from 'lucide-react';
 import { fetchCouncil, CouncilVote, AgendaItem } from '../api';
@@ -122,11 +122,29 @@ export default function Council() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterTag, setFilterTag] = useState('');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Debounce search input by 300ms
   useEffect(() => {
-    fetchCouncil({ limit: '200' })
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search]);
+
+  // Fetch council votes whenever debouncedSearch changes
+  useEffect(() => {
+    setLoading(true);
+    const params: Record<string, string> = { limit: '200' };
+    if (debouncedSearch) params.q = debouncedSearch;
+
+    fetchCouncil(params)
       .then(rows => {
         setData(rows);
         // Find the most recent scraped_at across all rows
@@ -143,15 +161,14 @@ export default function Council() {
         showError(`Failed to load council votes: ${e.message}`);
       })
       .finally(() => setLoading(false));
-  }, [showError]);
+  }, [debouncedSearch, showError]);
 
   const filtered = useMemo(() => {
     return data.filter(v => {
-      if (search && !v.title.toLowerCase().includes(search.toLowerCase())) return false;
       if (filterTag && !v.tags.includes(filterTag)) return false;
       return true;
     });
-  }, [data, search, filterTag]);
+  }, [data, filterTag]);
 
   const allTags = useMemo(() => Array.from(new Set(data.flatMap(d => d.tags))), [data]);
 
