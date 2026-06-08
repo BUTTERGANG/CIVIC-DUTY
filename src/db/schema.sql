@@ -116,6 +116,7 @@ CREATE TABLE IF NOT EXISTS alert_rules (
     lat DECIMAL(10, 8),
     lng DECIMAL(11, 8),
     radius_miles DECIMAL(8, 2),
+    email_enabled BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -418,6 +419,7 @@ ALTER TABLE campaign_contributions ADD COLUMN IF NOT EXISTS committee_type TEXT;
 ALTER TABLE court_cases ADD COLUMN IF NOT EXISTS city TEXT NOT NULL DEFAULT 'fishers';
 
 ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS city TEXT NOT NULL DEFAULT 'fishers';
+ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS email_enabled BOOLEAN DEFAULT true;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS city TEXT NOT NULL DEFAULT 'fishers';
 
 -- Zoning: real ArcGIS fields (PublicNoticePoints source)

@@ -59,14 +59,34 @@ router.get('/rules', async (req, res) => {
 // POST /api/alerts/rules  — create a watchlist rule for the authenticated user
 router.post('/rules', async (req, res) => {
   try {
-    const { city, module, keyword, lat, lng, radius_miles } = req.body;
+    const { city, module, keyword, lat, lng, radius_miles, email_enabled } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO alert_rules (user_id, city, module, keyword, radius_miles, lat, lng)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [String(req.user!.userId), city ?? 'fishers', module, keyword ?? null, radius_miles ?? null, lat ?? null, lng ?? null]
+      `INSERT INTO alert_rules (user_id, city, module, keyword, radius_miles, lat, lng, email_enabled)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [String(req.user!.userId), city ?? 'fishers', module, keyword ?? null, radius_miles ?? null, lat ?? null, lng ?? null, email_enabled !== undefined ? email_enabled : true]
     );
     res.status(201).json(result.rows[0]);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH /api/alerts/rules/:id  — update a watchlist rule (must be owner)
+router.patch('/rules/:id', async (req, res) => {
+  try {
+    const { email_enabled } = req.body;
+
+    // Only allow toggling email_enabled for now; extend as needed
+    const result = await pool.query(
+      'UPDATE alert_rules SET email_enabled = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
+      [email_enabled, req.params.id, String(req.user!.userId)]
+    );
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Rule not found or not yours' });
+      return;
+    }
+    res.json(result.rows[0]);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
