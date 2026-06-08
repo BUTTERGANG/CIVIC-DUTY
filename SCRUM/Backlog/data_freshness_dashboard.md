@@ -1,6 +1,6 @@
 ---
 title: "Data Freshness Indicators"
-status: backlog
+status: sprint
 priority: P2
 project: civic-duty
 type: dev
