@@ -1,6 +1,6 @@
 ---
 title: "Council Vote Keyword Search"
-status: backlog
+status: sprint
 priority: P1
 project: civic-duty
 type: dev
