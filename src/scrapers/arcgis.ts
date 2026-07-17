@@ -38,6 +38,13 @@ export interface ArcgisScraperConfig {
   pageDelayMs?: number;
   /** Whether geometry contains {x: lng, y: lat} (default: true with outSR=4326) */
   hasGeometry?: boolean;
+  /**
+   * Set true for polygon layers (e.g. parcel boundaries) so lat/lng are derived from
+   * ArcGIS's `returnCentroid` param instead of raw geometry x/y (polygons have no
+   * single point). Do NOT set this for point layers — `returnCentroid=true` triggers
+   * a 400 "Unable to complete operation" error on point-geometry ArcGIS services.
+   */
+  useCentroid?: boolean;
   /** Custom transform applied after field mapping (optional) */
   transform?: (row: Record<string, any>, attrs: Record<string, any>) => Record<string, any>;
   /** Whether to run alert engine on new rows (default: true) */
@@ -54,7 +61,11 @@ const API_HEADERS = {
 };
 
 interface ArcgisResponse {
-  features?: { attributes: Record<string, any>; geometry?: { x: number; y: number } }[];
+  features?: {
+    attributes: Record<string, any>;
+    geometry?: { x: number; y: number } | { rings: number[][][] };
+    centroid?: { x: number; y: number };
+  }[];
   error?: { message: string; code: number };
   exceededTransferLimit?: boolean;
 }
@@ -103,6 +114,23 @@ function epochToTimestamp(ms: number | null): string | null {
   return new Date(ms).toISOString();
 }
 
+// Vertex-average centroid of a polygon's outer ring. Not area-weighted (won't be
+// exact for highly irregular shapes), but good enough for a representative point on
+// small features like parcels — used as a fallback for ArcGIS instances where
+// `returnCentroid` is accepted but doesn't actually populate `feature.centroid`
+// (observed on gis.indy.gov/MapIndyProperty; see indy_parcels.ts).
+function ringCentroid(rings: number[][][]): { x: number; y: number } | null {
+  const outer = rings[0];
+  if (!outer || outer.length === 0) return null;
+  let sumX = 0;
+  let sumY = 0;
+  for (const [x, y] of outer) {
+    sumX += x;
+    sumY += y;
+  }
+  return { x: sumX / outer.length, y: sumY / outer.length };
+}
+
 // ── Base Scraper Class ───────────────────────────────────────────────────────
 
 export class ArcgisScraper implements Scraper {
@@ -128,7 +156,13 @@ export class ArcgisScraper implements Scraper {
     // Collect all ArcGIS field names needed
     const arcgisFields = new Set<string>();
     for (const mapper of Object.values(fieldMap)) {
-      if (typeof mapper === 'string') arcgisFields.add(mapper);
+      if (typeof mapper === 'string') {
+        arcgisFields.add(mapper);
+      } else if (typeof mapper === 'function' && (mapper as any).arcgisField) {
+        // epochDateField()/epochTimestampField() tag their returned function with the
+        // source field name — pick it up so it actually gets requested in outFields.
+        arcgisFields.add((mapper as any).arcgisField);
+      }
     }
     if (this.config.extraOutFields) {
       for (const f of this.config.extraOutFields) arcgisFields.add(f);
@@ -136,7 +170,11 @@ export class ArcgisScraper implements Scraper {
 
     const outFields = Array.from(arcgisFields).join(',');
 
-    let allFeatures: { attributes: Record<string, any>; geometry?: { x: number; y: number } }[] = [];
+    let allFeatures: {
+      attributes: Record<string, any>;
+      geometry?: { x: number; y: number } | { rings: number[][][] };
+      centroid?: { x: number; y: number };
+    }[] = [];
     let offset = 0;
     let totalFetched = 0;
     let pages = 0;
@@ -152,6 +190,10 @@ export class ArcgisScraper implements Scraper {
         resultRecordCount: String(this.config.pageSize),
         resultOffset: String(offset),
       });
+      if (this.config.useCentroid) {
+        // Only valid on polygon layers — point-geometry services 400 on this param.
+        params.set('returnCentroid', 'true');
+      }
       if (this.config.orderByFields) {
         params.set('orderByFields', this.config.orderByFields);
       }
@@ -199,6 +241,8 @@ export class ArcgisScraper implements Scraper {
         const result = await this.upsertRow(row);
         if (result === 'insert') {
           inserted++;
+        } else if (typeof result === 'object') {
+          inserted++;
           if (enableAlerts) {
             await runAlertEngine(this.module, { ...row, id: result.id });
           }
@@ -216,10 +260,22 @@ export class ArcgisScraper implements Scraper {
     console.log(`[${this.module}] Done — ${inserted} inserted, ${updated} updated, ${errors} errors`);
   }
 
-  protected mapFeature(feature: { attributes: Record<string, any>; geometry?: { x: number; y: number } }): Record<string, any> {
+  protected mapFeature(feature: {
+    attributes: Record<string, any>;
+    geometry?: { x: number; y: number } | { rings: number[][][] };
+    centroid?: { x: number; y: number };
+  }): Record<string, any> {
     const { fieldMap, hasGeometry, staticFields, transform, city } = this.config;
     const attrs = feature.attributes;
+    // Point layers return `geometry: {x, y}` directly. Polygon layers (e.g. parcels)
+    // have no single point — ArcGIS's `returnCentroid` (see run()) is supposed to add
+    // a `centroid`, but some instances accept the param and silently don't populate it
+    // (observed on gis.indy.gov), so fall back to computing one from the ring vertices.
     const geo = feature.geometry;
+    let point: { x: number; y: number } | undefined;
+    if (geo && 'x' in geo) point = geo;
+    else if (feature.centroid) point = feature.centroid;
+    else if (geo && 'rings' in geo) point = ringCentroid(geo.rings) ?? undefined;
 
     const row: Record<string, any> = {
       city,
@@ -236,9 +292,9 @@ export class ArcgisScraper implements Scraper {
     }
 
     // Geometry
-    if (hasGeometry && geo) {
-      if (!('lat' in fieldMap)) row.lat = geo.y ?? null;
-      if (!('lng' in fieldMap)) row.lng = geo.x ?? null;
+    if (hasGeometry && point) {
+      if (!('lat' in fieldMap)) row.lat = point.y ?? null;
+      if (!('lng' in fieldMap)) row.lng = point.x ?? null;
     }
 
     // Custom transform
@@ -286,11 +342,15 @@ export class ArcgisScraper implements Scraper {
 // ── Convenience: epoch date/timestamp extractors ─────────────────────────────
 
 export function epochDateField(arcgisField: string): (attrs: Record<string, any>) => string | null {
-  return (attrs) => epochToDate(attrs[arcgisField]);
+  const fn = (attrs: Record<string, any>) => epochToDate(attrs[arcgisField]);
+  fn.arcgisField = arcgisField;
+  return fn;
 }
 
 export function epochTimestampField(arcgisField: string): (attrs: Record<string, any>) => string | null {
-  return (attrs) => epochToTimestamp(attrs[arcgisField]);
+  const fn = (attrs: Record<string, any>) => epochToTimestamp(attrs[arcgisField]);
+  fn.arcgisField = arcgisField;
+  return fn;
 }
 
 export function epochDateToCol(arcgisField: string, dbCol: string): ArcgisFieldMap {

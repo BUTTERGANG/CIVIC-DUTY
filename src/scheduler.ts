@@ -67,7 +67,7 @@ export function setupScheduler() {
   function scheduleWithLogging(
     cronExpr: string,
     source: string,
-    run: () => Promise<{ recordsUpserted?: number } | undefined>
+    run: () => Promise<{ recordsUpserted?: number } | undefined | void>
   ) {
     cron.schedule(cronExpr, async () => {
       console.log(`[Scheduler] Running ${source} scraper...`);

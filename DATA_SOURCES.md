@@ -1,7 +1,9 @@
 # Data Sources
 
 ## Scope
-Fishers, Indiana civic data — council meetings, procurement bids, campaign finance, zoning, and court records. Statewide Indiana data included where it adds value (IDOA bids, FCPA campaign finance).
+Fishers, Indianapolis, and Hamilton County, Indiana civic data — council meetings, procurement bids, campaign finance, zoning, court records, public safety incidents, and county GIS layers (parcels, buildings, schools, parks, polling). Statewide Indiana data included where it adds value (IDOA bids, FCPA campaign finance).
+
+**Note:** Sources 11–22 (Indianapolis + Hamilton County) were added without an accompanying update to this doc, `README.md`, or the roadmap. This pass (2026-07-17) reconciled all three docs against the actual code, and in the process found that all six Indianapolis ArcGIS sources (12–17) had never actually worked — `maps.indy.gov` 404'd entirely. Real endpoints (on `gis.indy.gov`) were found and all six scrapers rewritten and live-verified against real data; see each source's entry below and `src/scrapers/indy_*.ts` / `src/scrapers/arcgis.ts` git history for detail. Documented at lower fidelity than sources 1–10 for the rest; see the scraper source files directly (`src/scrapers/indy_*.ts`, `src/scrapers/hamco_*.ts`) for exact field mappings.
 
 ---
 
@@ -15,12 +17,26 @@ Fishers, Indiana civic data — council meetings, procurement bids, campaign fin
 | 2 | Fishers city bids page | Playwright | **Implemented** |
 | 3 | IDOA current business opportunities | Playwright (paginated) | **Implemented** |
 | 4 | IDOA upcoming anticipated solicitations | Playwright | **Implemented** |
-| 5 | Indiana FCPA campaign finance | HTTPS + CSV/ZIP | **Implemented** |
+| 5 | Indiana FCPA campaign finance (contributions) | HTTPS + CSV/ZIP | **Implemented** |
+| 5a | Indiana FCPA campaign finance (expenditures) | HTTPS + CSV/ZIP | **Not implemented** — `campaign_expenditures` table migrated but no scraper/route (see `SCRUM/Backlog/fcpa_expenditure_ingestion.md`) |
 | 6 | Fishers ArcGIS — public notice zoning | REST API (ArcGIS FeatureServer) | **Implemented** |
 | 7 | Fishers ArcGIS — development projects | REST API (ArcGIS FeatureServer) | **Implemented** |
 | 8 | MyCase — Indiana Courts | Playwright, on-demand only | **Implemented** (no bulk cron) |
 | 9 | Doxpop court data | Subscription API | Not pursued |
 | 10 | IndianasBids.com historical bids | Paywalled | Not pursued |
+| 11 | Municode — Indianapolis council meetings | REST API (no auth) | **Implemented** |
+| 12 | ArcGIS — IMPD Incidents (NIBRS) | REST API (ArcGIS Table, non-spatial) | **Implemented, live-verified 2026-07-17** — no address/lat/lng published |
+| 13 | ArcGIS — IMPD Traffic Crashes | REST API (ArcGIS FeatureServer) | **Implemented, live-verified 2026-07-17** |
+| 14 | ArcGIS — IMPD Citations | REST API (ArcGIS FeatureServer) | **Implemented, live-verified 2026-07-17** |
+| 15 | ArcGIS — IMPD Use of Force | REST API (ArcGIS Table, non-spatial) | **Implemented, live-verified 2026-07-17** — generalized address only, no lat/lng |
+| 16 | ArcGIS — RequestIndy 311 service requests | REST API (ArcGIS FeatureServer) | **Implemented, live-verified 2026-07-17** |
+| 17 | ArcGIS — MapIndy parcels | REST API (ArcGIS MapServer, polygon) | **Implemented, live-verified 2026-07-17** — ~400K rows, weekly cron only |
+| 18 | ArcGIS — Hamilton County parcels | REST API (ArcGIS FeatureServer) | **Implemented** |
+| 19 | ArcGIS — Hamilton County building footprints | REST API (ArcGIS FeatureServer) | **Implemented** — no municipality field, `city` hardcoded |
+| 20 | ArcGIS — Hamilton County tax districts | REST API (ArcGIS FeatureServer) | **Implemented** |
+| 21 | ArcGIS — Hamilton County schools | REST API (ArcGIS FeatureServer) | **Implemented** |
+| 22 | ArcGIS — Hamilton County parks (boundaries layer) | REST API (ArcGIS MapServer) | **Implemented** — Trails/Trailheads/Memorials layers exist but not scraped |
+| 23 | ArcGIS — Hamilton County polling locations | REST API (ArcGIS FeatureServer) | **Implemented** |
 
 ---
 
@@ -298,6 +314,74 @@ Covers Hamilton County (Fishers). High-volume API requires contractual agreement
 **Status: Not pursued — paywalled**
 
 Full bid opportunities and results require paid subscription. No API discovered.
+
+---
+
+## 11. Municode — Indianapolis Council Meetings
+
+**Portal:** https://indianapolis-in.municode.com/
+**Scraper:** `src/scrapers/indy_council.ts`
+**Schedule:** Daily 10am
+
+Same shape as Fishers CivicClerk (source #1): plain `https` GET against `https://indianapolis-in.municode.com/api/Meetings`, no auth, ingests from `2023-01-01`. Writes into the same `council_votes` table with `city='indy'`.
+
+---
+
+## 12–16. ArcGIS — IMPD & 311 (Indianapolis Public Safety)
+
+**Scraper base:** `src/scrapers/arcgis.ts` (`ArcgisScraper`) — shared pagination/upsert/alert-firing logic used by all Indianapolis and Hamilton County sources below.
+**Schedule:** Daily, staggered 11am–3pm (see README "Scraper schedules")
+
+All five originally pointed at `maps.indy.gov/arcgis/rest/services/...`, which 404'd entirely — the whole path doesn't exist on that domain. Real endpoints (below) were found 2026-07-17 by querying ArcGIS Online's search API for `owner:IndyGIS`, which resolves to the City of Indianapolis/Marion County GIS org's actual hosted services on `gis.indy.gov`. All five rewritten and live-verified against real data (field names, sample values) that day.
+
+| # | Source | Scraper | Table | Service URL |
+|---|---|---|---|---|
+| 12 | IMPD Incidents (NIBRS) | `indy_incidents.ts` | `incidents` | `gis.indy.gov/server/rest/services/IMPD/IMPD_NIBRS_Public/FeatureServer/1` |
+| 13 | IMPD Traffic Crashes | `indy_crashes.ts` | `crashes` | `gis.indy.gov/server/rest/services/IMPD/IMPD_Crash_Public/FeatureServer/0` |
+| 14 | IMPD Citations | `indy_citations.ts` | `citations` | `gis.indy.gov/server/rest/services/IMPD/IMPD_Citations_Public/FeatureServer/0` |
+| 15 | IMPD Use of Force | `indy_use_of_force.ts` | `use_of_force` | `gis.indy.gov/server/rest/services/IMPD/IMPD_UseOfForce_Public/FeatureServer/0` |
+| 16 | RequestIndy 311 (RIMAC) | `indy_service_requests.ts` | `service_requests` | `gis.indy.gov/server/rest/services/OpenData/ODP_RIMACServiceRequests/FeatureServer/0` |
+
+Notes specific to this rewrite:
+- **#12 and #15 are non-spatial ArcGIS Tables** (`geometryType: None`), not Feature Layers — IMPD does not publish exact incident locations. #12 has no address field at all (only city/zip); #15's `Gen_Address` is a deliberately generalized address, not the exact location. Both scrapers set `hasGeometry: false`; `lat`/`lng` will always be null for these two tables — that's correct, not a bug.
+- **#14 (Citations):** `citation_id` maps to `OBJECTID`, not the source's `CitationNumber` — a single citation can list multiple violations, each as its own row sharing one `CitationNumber`, confirmed via live sample data (two rows, same `CitationNumber`, different `Violation_Desc`). Using `CitationNumber` as the dedup key would silently drop all but one violation per citation.
+- **#15 (Use of Force):** no `incident_type` or `officer_years_experience` field exists in the source; `force_type` is derived from which of the taser/physical/K9/less-lethal/OC force-application flags are non-zero on the row.
+- Rewriting these also surfaced a latent bug in the shared `ArcgisScraper` base class: fields referenced only inside a custom mapper *function* (as opposed to a plain string field name) were never added to the ArcGIS request's `outFields`, so e.g. every `epochTimestampField(...)`-mapped date column was silently always null. Fixed by having `epochDateField()`/`epochTimestampField()` tag their returned function with the source field name so the base class's field collector picks it up (`arcgis.ts`). This also fixes `hamco_parcels.ts`'s `last_sale_date`, which had the same gap.
+
+All five upsert on `(city, <resource>_id)`, dedup via the standard ArcGIS `xmax = 0` insert-vs-update pattern in `ArcgisScraper.upsertRow()`.
+
+---
+
+## 17. ArcGIS — MapIndy Parcels
+
+**Scraper:** `src/scrapers/indy_parcels.ts`
+**Service URL:** `gis.indy.gov/server/rest/services/MapIndy/MapIndyProperty/MapServer/10` (rewritten 2026-07-17 — see #12–16 above for why)
+**Table:** `parcels` (`city='indy'`)
+**Schedule:** Weekly, Sunday 2am
+
+Large dataset (~400K records) — the scraper's own comment flags a 30–60 minute first run. Deliberately not on a daily cron.
+
+This is a **polygon** layer (parcel boundaries, not points). ArcGIS's `returnCentroid` request param is accepted by this specific instance but silently doesn't populate `centroid` in the response (confirmed live), so `arcgis.ts` falls back to a vertex-average centroid computed from the polygon's outer ring (`ringCentroid()` in `arcgis.ts`) — an approximation, not a true area-weighted centroid, but fine for parcel-sized polygons.
+
+This service is assessment data only — it has no zoning, year-built, or sale-history fields, so `zoning`, `year_built`, `last_sale_date`, `last_sale_price`, and `building_area_sqft` are left unmapped (stay null) for Indianapolis parcels rather than guessed at.
+
+⚠ `returnCentroid=true` triggers a 400 error on **point**-geometry ArcGIS services — it must only be sent for polygon layers. `arcgis.ts` gates it behind a new `useCentroid` config flag (only set on `indy_parcels.ts`) rather than sending it on every request, which was an actual regression caught during this rewrite (it broke all 5 of the point-based sources above until fixed).
+
+---
+
+## 18–23. ArcGIS — Hamilton County GIS
+
+**Base:** `https://gis1.hamiltoncounty.in.gov/arcgis/rest/services/`
+**Schedule:** Weekly, staggered Sun–Thu (see README "Scraper schedules")
+
+| # | Source | Scraper | Table | Notes |
+|---|---|---|---|---|
+| 18 | Parcels | `hamco_parcels.ts` | `parcels` | Covers Fishers, Carmel, Noblesville, Arcadia, Atlanta, Cicero, Sheridan, Westfield, and unincorporated areas. `CORPLIMIT` field determines per-row `city` value — this is the only Hamilton County source with real per-municipality attribution. |
+| 19 | Building footprints | `hamco_buildings.ts` | `buildings` | **No municipality field in the source layer** — `city` is hardcoded `'hamco'`. Comment in the scraper notes a spatial join against corporate limits is needed to attribute buildings to a city; not yet done. |
+| 20 | Tax districts | `hamco_tax_districts.ts` | `tax_districts` | — |
+| 21 | Schools | `hamco_schools.ts` | `schools` | — |
+| 22 | Parks | `hamco_parks.ts` | `parks` | HamCoParks service has 5 layers (Boundaries, Trails, Trailheads, Memorials, Rules Signs); only Park Boundaries (layer 4) is scraped. No dedup key — insert-only. |
+| 23 | Polling locations | `hamco_polling.ts` | `polling_locations` | From the HamCo Voting layer. |
 
 ---
 

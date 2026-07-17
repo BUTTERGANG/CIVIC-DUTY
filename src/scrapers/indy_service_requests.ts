@@ -1,10 +1,15 @@
 // src/scrapers/indy_service_requests.ts
-// Indianapolis 311 service requests from RequestIndy ArcGIS REST service.
+// Indianapolis 311 service requests, from the Mayor's Action Center's
+// RequestIndy feed (branded "RequestIndy" in the product, "RIMAC" in the
+// underlying open-data service name).
+//
+// URL/field map verified live 2026-07-17 against gis.indy.gov (the previous
+// maps.indy.gov URL 404'd — see git history / SCRUM/06_Programs/civic-duty/context.md).
 
 import { ArcgisScraper, epochTimestampField } from './arcgis';
 
 const SERVICE_REQUESTS_URL =
-  'https://maps.indy.gov/arcgis/rest/services/RequestIndy/RequestIndy_311/FeatureServer/0/query';
+  'https://gis.indy.gov/server/rest/services/OpenData/ODP_RIMACServiceRequests/FeatureServer/0/query';
 
 export class IndyServiceRequestsScraper extends ArcgisScraper {
   constructor() {
@@ -14,18 +19,18 @@ export class IndyServiceRequestsScraper extends ArcgisScraper {
       serviceUrl: SERVICE_REQUESTS_URL,
       tableName: 'service_requests',
       fieldMap: {
-        request_id: 'SERVICE_REQUEST_ID',
-        request_type: 'REQUEST_TYPE',
-        description: 'DESCRIPTION',
+        request_id: 'SERVICEREQUESTID',
+        request_type: 'SERVICENAME',
+        description: 'ACTIVITY',
         status: 'STATUS',
         address: 'ADDRESS',
-        district: 'DISTRICT',
-        requested_at: epochTimestampField('REQUEST_DATE'),
-        closed_at: epochTimestampField('CLOSED_DATE'),
+        district: 'COUNCILDISTRICT',
+        requested_at: epochTimestampField('REQUESTEDDATETIME'),
+        closed_at: epochTimestampField('CLOSEDDATETIME'),
       },
       dedupFields: ['city', 'request_id'],
-      orderByFields: 'REQUEST_DATE DESC',
-      whereClause: 'REQUEST_DATE >= CURRENT_DATE - INTERVAL \'180 days\'',
+      orderByFields: 'REQUESTEDDATETIME DESC',
+      whereClause: "REQUESTEDDATETIME >= CURRENT_DATE - INTERVAL '180' DAY",
       staticFields: { source: 'indy_arcgis' },
       enableAlerts: false,
     });

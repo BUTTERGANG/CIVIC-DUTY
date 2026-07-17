@@ -26,8 +26,6 @@ jobs:
 
       - name: TypeScript typecheck
         run: npx tsc --noEmit
-        continue-on-error: true
-        # TODO: fix existing type errors, then remove continue-on-error
 
   backend-build:
     name: Backend build
@@ -47,8 +45,6 @@ jobs:
 
       - name: Build (tsc)
         run: npm run build
-        continue-on-error: true
-        # TODO: tsc compile may have errors — fix them, then remove
 
       - name: Validate build output
         run: |

@@ -1,10 +1,14 @@
 // src/scrapers/indy_crashes.ts
 // Indianapolis traffic crashes from ArcGIS REST service.
+//
+// URL/field map verified live 2026-07-17 against gis.indy.gov (the previous
+// maps.indy.gov URL 404'd — see git history / SCRUM/06_Programs/civic-duty/context.md).
+// The source has no direct "severity" field — derived from Injuries/Fatalities counts.
 
 import { ArcgisScraper, epochTimestampField } from './arcgis';
 
 const CRASHES_URL =
-  'https://maps.indy.gov/arcgis/rest/services/IMPD/Traffic_Crashes/FeatureServer/0/query';
+  'https://gis.indy.gov/server/rest/services/IMPD/IMPD_Crash_Public/FeatureServer/0/query';
 
 export class IndyCrashesScraper extends ArcgisScraper {
   constructor() {
@@ -14,19 +18,20 @@ export class IndyCrashesScraper extends ArcgisScraper {
       serviceUrl: CRASHES_URL,
       tableName: 'crashes',
       fieldMap: {
-        crash_id: 'CRASH_ID',
-        crash_type: 'COLLISION_TYPE',
-        severity: 'SEVERITY',
-        address: 'STREET_ADDRESS',
-        district: 'DISTRICT',
-        occurred_at: epochTimestampField('CRASH_DATE'),
-        vehicles_involved: 'VEHICLES_INVOLVED',
-        injuries: 'INJURIES',
-        fatalities: 'FATALITIES',
+        crash_id: 'CrashNum',
+        crash_type: 'MannerofCollision',
+        severity: (attrs) =>
+          attrs.Fatalities > 0 ? 'fatal' : attrs.Injuries > 0 ? 'injury' : 'property_damage',
+        address: 'sAddress',
+        district: 'Geo_Districts',
+        occurred_at: epochTimestampField('CrashDate'),
+        vehicles_involved: 'Vehicles',
+        injuries: 'Injuries',
+        fatalities: 'Fatalities',
       },
       dedupFields: ['city', 'crash_id'],
-      orderByFields: 'CRASH_DATE DESC',
-      whereClause: 'CRASH_DATE >= CURRENT_DATE - INTERVAL \'90 days\'',
+      orderByFields: 'CrashDate DESC',
+      whereClause: "CrashDate >= CURRENT_DATE - INTERVAL '90' DAY",
       staticFields: { source: 'indy_arcgis' },
       enableAlerts: false,
     });

@@ -2,11 +2,19 @@
 // Indianapolis property parcels from MapIndy ArcGIS REST service.
 // NOTE: This is a large dataset (~400K records). The scraper processes in batches
 // and is designed to run less frequently (weekly). First run may take 30-60 min.
+//
+// URL/field map verified live 2026-07-17 against gis.indy.gov (the previous
+// maps.indy.gov URL 404'd — see git history / SCRUM/06_Programs/civic-duty/context.md).
+// This layer is a Polygon layer (parcel boundaries), not points, so lat/lng come from
+// the ArcGIS `returnCentroid` param (see arcgis.ts) rather than raw geometry x/y.
+// This service is assessment data only — it has no zoning, year-built, or sale-history
+// fields, so `zoning`, `year_built`, `last_sale_date`, `last_sale_price`, and
+// `building_area_sqft` are left unmapped (stay null) rather than guessed.
 
-import { ArcgisScraper, epochDateField } from './arcgis';
+import { ArcgisScraper } from './arcgis';
 
 const PARCELS_URL =
-  'https://maps.indy.gov/arcgis/rest/services/MapIndy/Parcels/FeatureServer/0/query';
+  'https://gis.indy.gov/server/rest/services/MapIndy/MapIndyProperty/MapServer/10/query';
 
 export class IndyParcelsScraper extends ArcgisScraper {
   constructor() {
@@ -16,24 +24,27 @@ export class IndyParcelsScraper extends ArcgisScraper {
       serviceUrl: PARCELS_URL,
       tableName: 'parcels',
       fieldMap: {
-        parcel_id: 'PARCEL_ID',
-        address: 'SITE_ADDRESS',
-        owner_name: 'OWNER_NAME',
-        owner_address: 'OWNER_ADDRESS',
-        land_use: 'LAND_USE',
-        zoning: 'ZONING',
-        assessed_value: 'ASSESSED_VALUE',
-        land_area_sqft: 'LAND_AREA_SQFT',
-        building_area_sqft: 'BLDG_AREA_SQFT',
-        year_built: 'YEAR_BUILT',
-        last_sale_date: epochDateField('LAST_SALE_DATE'),
-        last_sale_price: 'LAST_SALE_PRICE',
+        parcel_id: 'STATEPARCELNUMBER',
+        address: (attrs) =>
+          [attrs.STNUMBER, attrs.PRE_DIR, attrs.STREET_NAME, attrs.SUFFIX, attrs.SUF_DIR]
+            .filter(Boolean)
+            .join(' '),
+        owner_name: 'FULLOWNERNAME',
+        owner_address: (attrs) =>
+          [attrs.OWNERADDRESS, attrs.OWNERCITY, attrs.OWNERSTATE, attrs.OWNERZIP]
+            .filter(Boolean)
+            .join(', '),
+        land_use: 'PROPERTY_CLASS',
+        assessed_value: 'ASSESSORYEAR_TOTALAV',
+        land_area_sqft: 'ESTSQFT',
       },
+      extraOutFields: ['STNUMBER', 'PRE_DIR', 'STREET_NAME', 'SUFFIX', 'SUF_DIR', 'OWNERADDRESS', 'OWNERCITY', 'OWNERSTATE', 'OWNERZIP'],
+      useCentroid: true,
       dedupFields: ['city', 'parcel_id'],
-      orderByFields: 'PARCEL_ID ASC',
+      orderByFields: 'STATEPARCELNUMBER ASC',
       whereClause: '1=1',
       pageSize: 2000,
-      pageDelayMs: 500,  // parcels service is typically fast
+      pageDelayMs: 500, // parcels service is typically fast
       staticFields: { source: 'mapindy' },
       enableAlerts: false,
     });

@@ -1,6 +1,16 @@
 # CivicDuty
 
-A civic data aggregator focused on **Fishers, Indiana** — tracking council votes, procurement bids, campaign finance, zoning changes, and court records in a single dashboard.
+A civic data aggregator covering **Fishers, Indianapolis, and Hamilton County, Indiana** — council votes, procurement bids, campaign finance, zoning changes, court records, public safety data, and county GIS layers (parcels, buildings, schools, parks, polling locations) in a single dashboard.
+
+> Originally scoped to Fishers only (see "Regions" below) — Indianapolis public-safety data and Hamilton County GIS layers were added later and aren't yet reflected in `SCRUM/06_Programs/civic-duty/context.md`'s "Multi-Town Expansion Plan." See [Roadmap](#roadmap--next-steps) at the bottom of this file.
+
+## Regions
+
+| Region | Scope | Modules |
+|---|---|---|
+| **Fishers** | City-level, original scope | Council, bids, zoning, campaign finance, court lookup |
+| **Indianapolis** | City-level, public safety | Council, incidents, crashes, citations, use-of-force, 311 service requests, parcels |
+| **Hamilton County** | County-level GIS | Parcels (covers Fishers/Carmel/Noblesville/Westfield/etc.), buildings, tax districts, schools, parks, polling locations |
 
 ---
 
@@ -10,7 +20,8 @@ A civic data aggregator focused on **Fishers, Indiana** — tracking council vot
 CIVIC-DUTY/
 ├── src/
 │   ├── server.ts              # Express API server (port from PORT env, default 3001)
-│   ├── scheduler.ts           # node-cron jobs: council 6am, bids 7am, zoning 8am, campaign Mon 9am
+│   ├── scheduler.ts           # node-cron jobs — see "Scraper schedules" below; wraps every scraper
+│   │                          # in scheduleWithLogging() → writes scraper_log rows for freshness tracking
 │   ├── db/
 │   │   ├── schema.sql         # Table definitions + safe migrations (ALTER TABLE IF NOT EXISTS)
 │   │   ├── index.ts           # pg Pool — reads DATABASE_URL from .env
@@ -24,10 +35,24 @@ CIVIC-DUTY/
 │   │   ├── bids.ts            # Fishers city page + IDOA current + IDOA upcoming → bids
 │   │   ├── campaign.ts        # Indiana FCPA CSV/ZIP streaming → campaign_contributions
 │   │   ├── zoning.ts          # ArcGIS FeatureServer — public notices + dev projects → zoning_changes
-│   │   └── court.ts           # MyCase on-demand lookup via Playwright; no cron run
+│   │   ├── court.ts           # MyCase on-demand lookup via Playwright; no cron run
+│   │   ├── arcgis.ts          # Shared ArcgisScraper base class — pagination, upsert, alert firing
+│   │   ├── indy_council.ts    # Municode Meetings Portal (Indianapolis) → council_votes (city='indy')
+│   │   ├── indy_incidents.ts  # ArcGIS (IMPD NIBRS) → incidents — non-spatial, no address/lat/lng
+│   │   ├── indy_crashes.ts    # ArcGIS (IMPD Traffic_Crashes) → crashes
+│   │   ├── indy_citations.ts  # ArcGIS (IMPD Citations) → citations
+│   │   ├── indy_use_of_force.ts        # ArcGIS (IMPD UseOfForce) → use_of_force
+│   │   ├── indy_service_requests.ts    # ArcGIS (RequestIndy 311) → service_requests
+│   │   ├── indy_parcels.ts    # ArcGIS (MapIndy) → parcels, city='indy' — ~400K rows, weekly only
+│   │   ├── hamco_parcels.ts   # ArcGIS (HamCo GIS) → parcels, city from CORPLIMIT field
+│   │   ├── hamco_buildings.ts # ArcGIS (HamCo GIS) → buildings — city hardcoded 'hamco', no muni field
+│   │   ├── hamco_tax_districts.ts      # ArcGIS (HamCo GIS) → tax_districts
+│   │   ├── hamco_schools.ts   # ArcGIS (HamCo GIS) → schools
+│   │   ├── hamco_parks.ts     # ArcGIS (HamCo GIS, Park Boundaries layer) → parks
+│   │   └── hamco_polling.ts   # ArcGIS (HamCo Voting layer) → polling_locations
 │   ├── routes/
 │   │   ├── auth.ts            # POST /register, POST /login, GET /me (JWT auth)
-│   │   ├── council.ts         # GET /api/council  (from, to, tags, limit, offset)
+│   │   ├── council.ts         # GET /api/council  (from, to, tags, q, limit, offset)
 │   │   ├── bids.ts            # GET /api/bids  (category, agency, limit, offset)
 │   │   ├── campaign.ts        # GET /api/campaign  (candidate, cycle, office, donor_name, min/max_amount)
 │   │   │                      # GET /api/campaign/candidates  GET /api/campaign/offices
@@ -35,10 +60,16 @@ CIVIC-DUTY/
 │   │   ├── court.ts           # GET /api/court   POST /api/court/lookup (on-demand MyCase)
 │   │   ├── alerts.ts          # GET /api/alerts  (auth required)
 │   │   │                      # GET/POST/DELETE /api/alerts/rules  PATCH /api/alerts/:id/read
-│   │   └── dashboard.ts       # GET /api/dashboard/summary
+│   │   ├── dashboard.ts       # GET /api/dashboard/summary
+│   │   ├── cities.ts          # GET /api/cities  — metadata + live counts (only fishers/indy defined)
+│   │   ├── incidents.ts, crashes.ts, citations.ts, use_of_force.ts, service_requests.ts
+│   │   │                      # GET /api/<resource>  (city, district, from, to, limit, offset) + /:id
+│   │   ├── parcels.ts         # GET /api/parcels  (city, address, owner, land_use, zoning, lat/lng/radius_miles)
+│   │   └── buildings.ts, schools.ts, parks.ts, polling.ts, tax_districts.ts
+│   │                          # GET /api/<resource>  (city + resource-specific filters) + /:id
 │   └── alerts/
 │       └── engine.ts          # Keyword + geo rule matching; fires on each new scraper insert
-├── run-scraper.ts              # Manual runner: npx ts-node run-scraper.ts [council|bids|campaign|zoning]
+├── run-scraper.ts              # Manual runner: npx ts-node run-scraper.ts [council|bids|campaign|zoning|...]
 └── CIVIC-DUTY-UI/
     └── src/
         ├── api.ts                  # Typed fetch helpers + DB → UI field transforms; JWT auth headers
@@ -53,7 +84,10 @@ CIVIC-DUTY/
         │   ├── Campaign.tsx        # Contributions table with candidate/office/cycle/donor filters
         │   ├── Court.tsx           # Cached cases + on-demand MyCase lookup
         │   ├── Alerts.tsx          # Watchlist rules CRUD + triggered feed
-        │   └── Login.tsx           # Sign-in / register form
+        │   ├── Login.tsx           # Sign-in / register form
+        │   └── Parcels.tsx, Buildings.tsx, Schools.tsx, Parks.tsx, Polling.tsx, TaxDistricts.tsx
+        │                          # Hamilton County GIS layers — no dedicated Indy public-safety pages yet
+        │                          # (incidents/crashes/citations/use_of_force have API routes but no UI pages)
         └── components/
             └── Shared.tsx          # ModuleBadge, StatusChip, DocumentList, AlertCard, NavBar
 ```
@@ -86,16 +120,42 @@ CIVIC-DUTY/
 
 PostgreSQL database: `civic_duty`
 
+**Core (Fishers + shared)**
+
 | Table | Populated by | Dedup key | Key columns |
 |---|---|---|---|
 | `users` | Auth register | `email` | `email`, `password_hash`, `display_name` |
-| `council_votes` | CivicClerk API + PDFs | `event_id` | `title`, `date`, `category`, `status`, `tags`, `attached_pdfs` (JSONB), `summary`, `vote_counts` (JSONB), `agenda_items` (JSONB) |
+| `council_votes` | CivicClerk API + PDFs (Fishers) / Municode (Indy) | `event_id` | `title`, `date`, `category`, `status`, `tags`, `attached_pdfs` (JSONB), `summary`, `vote_counts` (JSONB), `agenda_items` (JSONB) |
 | `bids` | Fishers + IDOA × 2 | `(source, bid_id)` or `(source, title) WHERE bid_id IS NULL` | `source`, `title`, `agency`, `description`, `close_date`, `status`, `documents` |
 | `campaign_contributions` | Indiana FCPA 2000–present | `(donor_name, candidate, amount, filed_date)` | `candidate`, `committee`, `office`, `donor_name`, `donor_type`, `amount`, `filed_date`, `cycle` |
+| `campaign_expenditures` | **Migrated, not populated** — no scraper or route writes to this table yet | `(donor_name, candidate, amount, filed_date)` | See `SCRUM/Backlog/fcpa_expenditure_ingestion.md` |
 | `zoning_changes` | Fishers ArcGIS FeatureServer | `docket` (notices); `(project_name) WHERE source='dev_project'` | `source`, `address`, `docket`, `board`, `request_type`, `description`, `status`, `lat`, `lng`, `project_name`, `project_type` |
 | `court_cases` | MyCase on-demand | `case_number` | `case_type`, `status`, `parties`, `next_hearing`, `judge` |
 | `alert_rules` | User-created (auth required) | — | `user_id`, `module`, `keyword`, `lat`, `lng`, `radius_miles` |
 | `alerts` | Alert engine on insert | — | `user_id`, `module`, `message`, `item_id`, `read` |
+| `scraper_log` | Every scraper run (success or error), via `scheduleWithLogging()` in `scheduler.ts` | — | `source`, `run_at`, `status`, `records_upserted`, `error_message` |
+
+**Indianapolis** (`city = 'indy'`)
+
+| Table | Populated by | Dedup key |
+|---|---|---|
+| `incidents` | ArcGIS — IMPD NIBRS (non-spatial: no address/lat/lng, city/zip only) | `(city, incident_id)` |
+| `crashes` | ArcGIS — IMPD Traffic Crashes | `(city, crash_id)` |
+| `citations` | ArcGIS — IMPD Citations | `(city, citation_id)` |
+| `use_of_force` | ArcGIS — IMPD Use of Force | `(city, report_id)` |
+| `service_requests` | ArcGIS — RequestIndy 311 | `(city, request_id)` |
+| `parcels` | ArcGIS — MapIndy (~400K rows, weekly cron) | `(city, parcel_id)` |
+
+**Hamilton County** (`city = 'hamco'`, except `parcels` which is per-municipality via `CORPLIMIT`)
+
+| Table | Populated by | Dedup key |
+|---|---|---|
+| `parcels` | HamCo GIS — covers Fishers/Carmel/Noblesville/Westfield/unincorporated | `(city, parcel_id)` |
+| `buildings` | HamCo GIS — county-wide, no municipality field (`city` hardcoded `'hamco'`) | `(city, building_id)` |
+| `tax_districts` | HamCo GIS | `(city, district_code)` |
+| `schools` | HamCo GIS | `(city, name, address)` |
+| `parks` | HamCo GIS, Park Boundaries layer only (Trails/Trailheads/Memorials layers exist but aren't scraped) | none — insert-only |
+| `polling_locations` | HamCo Voting layer | `(city, name, address)` |
 
 Initialize / re-run migrations:
 ```bash
@@ -170,12 +230,39 @@ npx ts-node run-scraper.ts zoning     # Fishers ArcGIS — public notices + dev 
 
 ## Scraper schedules (node-cron)
 
+Every job below is wrapped in `scheduleWithLogging()` (`src/scheduler.ts`), which writes a `scraper_log` row per run for the dashboard's data-freshness indicators.
+
+**Fishers**
+
 | Scraper | Schedule | Source(s) |
 |---|---|---|
 | Council + PDF extraction | Daily 6am | CivicClerk OData API → Minutes PDFs → Agenda PDFs |
 | Bids | Daily 7am | Fishers city page + IDOA current + IDOA upcoming |
 | Zoning | Daily 8am | Fishers ArcGIS (public notices) + Fishers ArcGIS (dev projects) |
 | Campaign finance | Mondays 9am | Indiana FCPA bulk CSV/ZIP |
+
+**Indianapolis**
+
+| Scraper | Schedule | Source(s) |
+|---|---|---|
+| Council | Daily 10am | Municode Meetings Portal |
+| Incidents | Daily 11am | ArcGIS — IMPD NIBRS |
+| Crashes | Daily 12pm | ArcGIS — IMPD Traffic Crashes |
+| Citations | Daily 1pm | ArcGIS — IMPD Citations |
+| Use of force | Daily 2pm | ArcGIS — IMPD Use of Force |
+| Service requests | Daily 3pm | ArcGIS — RequestIndy 311 |
+| Parcels | Weekly, Sun 2am | ArcGIS — MapIndy (~400K rows; first run 30–60 min) |
+
+**Hamilton County**
+
+| Scraper | Schedule | Source(s) |
+|---|---|---|
+| Parcels | Weekly, Sun 3am | HamCo GIS |
+| Buildings | Weekly, Sun 4am | HamCo GIS |
+| Tax districts | Weekly, Mon 5am | HamCo GIS |
+| Schools | Weekly, Tue 5am | HamCo GIS |
+| Parks | Weekly, Wed 5am | HamCo GIS |
+| Polling locations | Weekly, Thu 5am | HamCo GIS |
 
 Court is on-demand only — no scheduled cron run.
 
@@ -205,6 +292,17 @@ Court is on-demand only — no scheduled cron run.
 | `GET` | `/api/court` | `limit`, `offset` | Cached cases only |
 | `POST` | `/api/court/lookup` | Body: `{ case_number }` | Checks DB cache first; Playwright fetch on miss |
 | `GET` | `/api/dashboard/summary` | — | Counts + latest item per module |
+| `GET` | `/api/cities` | — | City metadata (display name, modules, live counts). Only `fishers` and `indy` are defined in `CITY_META` — Hamilton County (`hamco`) data has no city-level entry here since it's county-scoped |
+
+### Indianapolis & Hamilton County data (public read, no dedicated UI pages for most)
+
+| Method | Path | Query params |
+|---|---|---|
+| `GET` | `/api/incidents`, `/api/crashes`, `/api/citations`, `/api/use-of-force`, `/api/service-requests` | `city`, `district`, `from`, `to`, `limit`, `offset` (+ resource-specific: e.g. `incident_type`) |
+| `GET` | `/api/parcels` | `city`, `address`, `owner`, `land_use`, `zoning`, `lat`, `lng`, `radius_miles`, `limit`, `offset` |
+| `GET` | `/api/buildings`, `/api/schools`, `/api/parks`, `/api/polling-locations`, `/api/tax-districts` | `city` + resource-specific filters, `limit`, `offset` |
+
+All of the above also support `GET /:id`. None of these five public-safety resources (incidents/crashes/citations/use-of-force/service-requests) have a frontend page yet — API-only.
 
 ### Alerts (Bearer JWT required)
 | Method | Path | Notes |
@@ -241,6 +339,14 @@ Court is on-demand only — no scheduled cron run.
 - **Campaign finance first run:** The initial run of the campaign finance scraper is very long, taking 10–30 minutes to stream and process 27 years of statewide data. Subsequent runs are much faster.
 - **Fishers bids page:** The city's bids page has very few active listings at any given time (typically 1–3).
 - **MyCase CAPTCHA risk:** The MyCase court records site has a CAPTCHA. The current on-demand lookup is low-risk, but bulk scraping is not implemented and not recommended.
+- **All 6 Indianapolis ArcGIS scrapers pointed at a dead domain until 2026-07-17.** `maps.indy.gov/arcgis/rest/services/...` 404'd entirely — not just `incidents`, all six (citations, crashes, incidents, use-of-force, 311, parcels) were built against a URL pattern and field schema that never existed in production. Real service catalog is `gis.indy.gov/server/rest/services/...`, discovered via ArcGIS Online's search API, with completely different field names (e.g. citations: `CitationNumber`/`Violation_Desc`, not `CITATION_ID`/`VIOLATION`). All 6 have been rewritten and live-verified against real data. See git history on `src/scrapers/indy_*.ts` and `src/scrapers/arcgis.ts` for details.
+  - `incidents` (IMPD NIBRS) and `use_of_force` are non-spatial ArcGIS **Tables** — no address or lat/lng is published for either (privacy — Use of Force's `Gen_Address` is deliberately generalized). `hasGeometry: false` reflects that; don't expect these two to ever populate `lat`/`lng`.
+  - `parcels` (Indianapolis) is a **polygon** layer. ArcGIS's `returnCentroid` param is accepted by this particular instance but silently doesn't populate `centroid` in the response, so `arcgis.ts` falls back to a vertex-average centroid computed from the polygon rings (`ringCentroid()`). This is an approximation, not a true area-weighted centroid — fine for small parcels, would drift on very irregular large polygons.
+  - Fixing this also surfaced a real bug in the shared `ArcgisScraper` base class: fields referenced only inside a custom mapper *function* (as opposed to a plain string field name) were never added to the ArcGIS `outFields` request — silently starving that column. `epochDateField()`/`epochTimestampField()` now tag their returned function with the source field name so the base class picks it up; this also fixes `hamco_parcels.ts`'s `last_sale_date`, which had the same silent gap.
+  - This service is assessment data only — no zoning, year-built, or sale-history fields exist on it, so `zoning`, `year_built`, `last_sale_date`, `last_sale_price`, `building_area_sqft` stay null for Indianapolis parcels (not a bug — just not published here).
+- **`campaign_expenditures` is a dead table.** Migration `001_scraper_log_and_expenditures.sql` created it, but no scraper writes to it and no route reads from it. See `SCRUM/Backlog/fcpa_expenditure_ingestion.md`.
+- **CI typecheck/build gates don't fail the build.** ~~`.github/workflows/ci.yml` has `continue-on-error: true`~~ — fixed 2026-07-17, the backend typecheck/build steps are now hard gates. Frontend ESLint's `continue-on-error` is still soft (unverified — frontend `node_modules` wasn't installed in the environment this was checked from).
+- **`hamco_buildings` has no municipality field** — the county GIS layer doesn't identify which city a building is in, so `city` is hardcoded to `'hamco'` pending a spatial join against corporate limits (same issue `hamco_parcels` solves via its `CORPLIMIT` field).
 
 ---
 
@@ -259,3 +365,22 @@ See [DATA_SOURCES.md](DATA_SOURCES.md) for full API shapes, field mappings, volu
 | Fishers ArcGIS — public notices | REST API (ArcGIS FeatureServer), no auth |
 | Fishers ArcGIS — dev projects | REST API (ArcGIS FeatureServer), no auth |
 | MyCase — Indiana courts | Playwright, on-demand only |
+| Municode — Indianapolis council | REST API, no auth |
+| ArcGIS — IMPD incidents/crashes/citations/use-of-force | REST API (ArcGIS FeatureServer), no auth |
+| ArcGIS — RequestIndy 311 | REST API (ArcGIS FeatureServer), no auth |
+| ArcGIS — MapIndy parcels | REST API (ArcGIS FeatureServer), no auth, ~400K rows |
+| ArcGIS — Hamilton County GIS (parcels, buildings, tax districts, schools, parks, polling) | REST API (ArcGIS FeatureServer/MapServer), no auth |
+
+---
+
+## Roadmap / Next steps
+
+Cross-project roadmap lives in `SCRUM/06_Programs/civic-duty/context.md`; in-repo task detail lives in `SCRUM/Backlog/*.md` and `TODO.md`. As of 2026-07-17 both are stale relative to the code (they don't mention Indianapolis or Hamilton County at all) — `context.md` has been updated alongside this README. Prioritized next steps:
+
+1. ~~Verify the `indy_incidents.ts` ArcGIS URL.~~ **Done 2026-07-17** — turned out all 6 Indianapolis ArcGIS scrapers pointed at a dead domain, not just incidents. Real endpoints found and all 6 rewritten + live-verified against real data; see "Known issues" above for specifics (2 are non-spatial with no address/lat/lng by design, parcels needed a client-side centroid fallback). Also fixed a latent base-class bug (`arcgis.ts`) where function-mapped fields never made it into the ArcGIS request, silently starving date columns across multiple scrapers including `hamco_parcels.ts`.
+2. **Decide the fate of `campaign_expenditures`.** Table exists, nothing writes to it. Either finish `SCRUM/Backlog/fcpa_expenditure_ingestion.md` (wire up scraper + `/api/campaign/expenditures` route) or drop the table.
+3. ~~Remove `continue-on-error` from CI once confident.~~ **Done 2026-07-17** — backend typecheck/build are now hard gates. Frontend ESLint gate is still soft (unverified).
+4. **Reconcile the two roadmap narratives.** `context.md`'s "Multi-Town Expansion Plan" (CivicEngage/Swagit towns 2–4) predates the Indianapolis/Hamilton County build-out and doesn't account for it. Decide: keep pursuing a literal 4th CivicEngage town, or treat Indianapolis (public safety) and Hamilton County (GIS) as the de facto expansion track and update the plan to match.
+5. **Build frontend pages for Indianapolis public-safety data.** `incidents`, `crashes`, `citations`, `use_of_force`, and `service_requests` are fully scraped and API-accessible but have zero UI — the biggest functionality-vs-visibility gap in the app right now.
+6. **Existing queued backlog items** (`SCRUM/Backlog/`, status `sprint`): CivicClerk per-agenda-item PDF text extraction (P3), MyCase party-name search (P3), multi-town CivicEngage scraper (P2, contingent on decision in #4 above).
+7. **Re-run the 6 fixed Indy scrapers for real and confirm rows land correctly.** This session verified the fetch + field-mapping pipeline live (no DB available in this environment) but never exercised `upsertRow()` against a real Postgres instance — run `npx ts-node run-scraper.ts` (or wait for the next scheduled cron) against a real `DATABASE_URL` and spot-check the `incidents`/`crashes`/`citations`/`use_of_force`/`service_requests`/`parcels` tables.
