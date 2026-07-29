@@ -1,11 +1,10 @@
 // src/server.ts
+import { config } from './config'; // must come first — loads .env, validates required vars
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
+import fs from 'fs';
 import path from 'path';
 import { setupScheduler } from './scheduler';
-
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // Routers
 import councilRouter from './routes/council';
@@ -30,7 +29,6 @@ import pollingRouter from './routes/polling';
 import taxDistrictsRouter from './routes/tax_districts';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -61,7 +59,34 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
-app.listen(PORT, () => {
-  console.log(`[Server] Civic Data Aggregator API running on http://localhost:${PORT}`);
-  setupScheduler();
+// Serve the built frontend from the same origin as the API. The UI calls a
+// relative '/api' base (CIVIC-DUTY-UI/src/api.ts), so no proxy or CORS config
+// is needed once both are on one port — which is all Replit gives us.
+// In dev the UI runs on Vite's own server and this block is simply skipped.
+const hasUiBuild = fs.existsSync(path.join(config.uiDist, 'index.html'));
+if (hasUiBuild) {
+  app.use(express.static(config.uiDist));
+
+  // SPA fallback: any non-/api GET that didn't match a file is a client-side
+  // route, so hand back index.html and let React Router resolve it.
+  app.get(/^(?!\/api\/|\/health$).*/, (req, res) => {
+    res.sendFile(path.join(config.uiDist, 'index.html'));
+  });
+} else {
+  console.warn(
+    `[Server] No frontend build at ${config.uiDist} — serving API only. ` +
+      `Run: cd CIVIC-DUTY-UI && npm run build`
+  );
+}
+
+app.listen(config.port, () => {
+  console.log(`[Server] Civic Data Aggregator listening on port ${config.port}`);
+  console.log(`[Server] Frontend: ${hasUiBuild ? 'served from ' + config.uiDist : 'not built'}`);
+
+  if (config.schedulerEnabled) {
+    console.log('[Server] Scheduler enabled — registering cron jobs');
+    setupScheduler();
+  } else {
+    console.log('[Server] Scheduler disabled (ENABLE_SCHEDULER=false)');
+  }
 });

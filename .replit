@@ -1,0 +1,30 @@
+run = "npm run replit:dev"
+entrypoint = "src/server.ts"
+modules = ["nodejs-22", "postgresql-16"]
+
+hidden = ["dist", "node_modules", ".config"]
+
+[nix]
+channel = "stable-24_11"
+
+[env]
+PORT = "3333"
+# Use the Nix-provided Chromium (see replit.nix) rather than letting Playwright
+# download its own — that fails against Replit's read-only Nix store.
+# src/scrapers/utils.ts resolves the binary from PATH when this is set.
+PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
+# Cron scrapers must not run on Autoscale (it sleeps, and scales to N
+# instances). Set to "true" only on an always-on Reserved VM deployment.
+ENABLE_SCHEDULER = "false"
+
+[deployment]
+# Reserved VM, not Autoscale: the scheduler needs one always-on process, and
+# the heavy scrapes (Indy parcels ~400K rows, FCPA first run 10-30 min)
+# outlive any Autoscale request.
+deploymentTarget = "vm"
+build = ["sh", "-c", "npm run replit:build"]
+run = ["sh", "-c", "npm start"]
+
+[[ports]]
+localPort = 3333
+externalPort = 80

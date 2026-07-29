@@ -1,9 +1,9 @@
 import { Pool } from 'pg';
-import dotenv from 'dotenv';
-import path from 'path';
+import { config } from '../config';
 
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-
+// No localhost fallback on purpose — config.ts hard-fails at boot when
+// DATABASE_URL is unset, so a misconfigured deploy can't quietly point itself
+// at a database that isn't there.
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/civic_duty',
+  connectionString: config.databaseUrl,
 });

@@ -3,6 +3,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db';
+import { config } from '../config';
 import { requireAuth } from '../middleware/auth';
 
 const router = Router();
@@ -11,8 +12,7 @@ const SALT_ROUNDS = 12;
 const TOKEN_TTL = '7d';
 
 function signToken(userId: number, email: string): string {
-  const secret = process.env.JWT_SECRET!;
-  return jwt.sign({ userId, email }, secret, { expiresIn: TOKEN_TTL });
+  return jwt.sign({ userId, email }, config.jwtSecret, { expiresIn: TOKEN_TTL });
 }
 
 // POST /api/auth/register

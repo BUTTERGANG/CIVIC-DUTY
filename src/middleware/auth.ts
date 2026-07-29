@@ -1,6 +1,7 @@
 // src/middleware/auth.ts
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { config } from '../config';
 
 export interface AuthPayload {
   userId: number;
@@ -24,14 +25,10 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 
   const token = header.slice(7);
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    res.status(500).json({ error: 'JWT_SECRET not configured' });
-    return;
-  }
 
   try {
-    const payload = jwt.verify(token, secret) as AuthPayload;
+    // config.jwtSecret is validated at boot, so there's no unconfigured case here.
+    const payload = jwt.verify(token, config.jwtSecret) as AuthPayload;
     req.user = payload;
     next();
   } catch {

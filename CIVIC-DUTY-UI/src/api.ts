@@ -125,10 +125,14 @@ export interface CourtCase {
   scraped_at: string;
 }
 
-export async function fetchCourt(params: Record<string, string> = {}): Promise<any> {
+// GET /api/court returns { total, rows }; the bare-array arm covers older
+// responses that callers still narrow against with Array.isArray.
+export type CourtListResponse = CourtCase[] | { total?: number; rows: CourtCase[] };
+
+export async function fetchCourt(params: Record<string, string> = {}): Promise<CourtListResponse> {
   const merged = cityParam(params);
   const qs = new URLSearchParams(merged).toString();
-  return get<any>(`/court?${qs}`);
+  return get<CourtListResponse>(`/court?${qs}`);
 }
 
 export async function lookupCourtCase(caseNumber: string): Promise<{ source: string; case: CourtCase }> {

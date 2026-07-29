@@ -207,9 +207,40 @@ cd CIVIC-DUTY-UI && npm run dev
 DATABASE_URL=postgresql://youruser@localhost:5432/civic_duty
 PORT=3333
 JWT_SECRET=change-me-to-a-long-random-secret-before-deploying
+ENABLE_SCHEDULER=true   # set false on any instance that isn't a single always-on process
 ```
 
+> `DATABASE_URL` and `JWT_SECRET` are **required** — `src/config.ts` validates them at boot and exits with a readable message if either is missing, rather than failing later on the first query or login.
+
 > The Vite proxy in `CIVIC-DUTY-UI/vite.config.ts` must point to the same port as `PORT`. Both default to `3333`.
+
+---
+
+## Deploying
+
+### Serving model
+
+In production the Express server serves the built frontend from the same origin as the API — `src/server.ts` mounts `express.static()` on `CIVIC-DUTY-UI/dist` plus an SPA fallback for client-side routes. The UI calls a relative `/api` base, so one port serves everything and no CORS or proxy config is involved. If `CIVIC-DUTY-UI/dist` is absent the server logs a warning and runs API-only.
+
+Build both halves with:
+
+```bash
+npm run build:all      # tsc backend + vite frontend
+npm start              # node dist/server.js
+```
+
+### The scheduler
+
+`setupScheduler()` registers 17 cron jobs and runs inside the server process. It must run on **exactly one always-on instance** — several sources (CivicClerk especially) are rate-limited, and duplicate replicas would scrape them in parallel. Set `ENABLE_SCHEDULER=false` on anything that scales out or sleeps, and run the scheduler as a single separate deployment.
+
+### Replit
+
+`.replit` and `replit.nix` are checked in. Notes specific to that platform:
+
+- **Deployment target is Reserved VM, not Autoscale.** Autoscale sleeps and scales to N instances, which breaks cron; the heavy scrapes (Indy parcels ~400K rows, FCPA first run 10–30 min) also outlive any Autoscale request.
+- **Secrets** go in Replit Secrets, not a `.env` file — `DATABASE_URL` and `JWT_SECRET` at minimum.
+- **`ENABLE_SCHEDULER` defaults to `false`** in `.replit`. Flip it to `true` only on the always-on deployment.
+- **Playwright** uses the Nix-provided Chromium (`replit.nix`) rather than downloading its own, which fails against Replit's read-only Nix store. `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` makes `src/scrapers/utils.ts` resolve the binary from `PATH`. Without a working Chromium, the **bids** (Fishers + IDOA) and **court** lookup scrapers fail; council, campaign, zoning and all 12 ArcGIS scrapers are plain HTTP and unaffected.
 
 ---
 

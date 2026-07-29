@@ -8,7 +8,14 @@
     "dev": "ts-node src/server.ts",
     "db:init": "ts-node src/db/init.ts",
     "db:seed": "ts-node src/db/seed.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "build:ui": "cd CIVIC-DUTY-UI && npm install --no-fund --no-audit && npm run build",
+    "build:all": "npm run build && npm run build:ui",
+    "replit:build": "npm run build:all",
+    "replit:dev": "npm run build:ui && npm run dev"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "keywords": [],
   "author": "",
