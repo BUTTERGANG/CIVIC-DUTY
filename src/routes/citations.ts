@@ -1,12 +1,15 @@
 // src/routes/citations.ts
 import { Router } from 'express';
 import { pool } from '../db';
+import { clampLimit, clampOffset, sendError } from '../lib/http';
 
 const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { city, violation_type, district, from, to, limit = 50, offset = 0 } = req.query;
+    const { city, violation_type, district, from, to, limit: rawLimit, offset: rawOffset } = req.query;
+    const limit = clampLimit(rawLimit);
+    const offset = clampOffset(rawOffset);
     let query = 'SELECT * FROM citations WHERE 1=1';
     const params: any[] = [];
 
@@ -39,8 +42,8 @@ router.get('/', async (req, res) => {
 
     const result = await pool.query(query, params);
     res.json(result.rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Citations');
   }
 });
 
@@ -49,8 +52,8 @@ router.get('/:id', async (req, res) => {
     const result = await pool.query('SELECT * FROM citations WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Citations');
   }
 });
 

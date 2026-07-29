@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { errorMessage } from '../lib/format';
 
 export default function Login() {
   const { login, register } = useAuth();
@@ -20,8 +21,8 @@ export default function Login() {
       } else {
         await register(email, password, displayName || undefined);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }

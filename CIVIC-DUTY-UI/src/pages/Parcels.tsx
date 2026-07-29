@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, LayerGroup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { ModuleBadge, StatusChip, EmptyState } from '../components/Shared';
+import { ModuleBadge } from '../components/Shared';
 import { fetchParcels, Parcel } from '../api';
-import { MapPin, DollarSign, Home, Maximize, Calendar, User, X, Clock, Search } from 'lucide-react';
+import { MapPin, Calendar, User, X, Clock, Search } from 'lucide-react';
 import { formatDate, timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 

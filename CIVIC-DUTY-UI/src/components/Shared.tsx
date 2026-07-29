@@ -1,9 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, CircleUser, Map, TrendingUp, LogOut, Menu, X, ChevronDown, Home, Building2, GraduationCap, Trees, Vote, Landmark as TaxIcon } from 'lucide-react';
+import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, Map, TrendingUp, LogOut, Menu, X, ChevronDown, Home, Building2, GraduationCap, Trees, Vote, Landmark as TaxIcon } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useState, useEffect, useRef } from 'react';
-import { useCity, type CityMeta } from '../context/CityContext';
+import { useCity } from '../context/CityContext';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -112,7 +112,15 @@ export const EmptyState = ({ title, message }: { title: string; message: string 
 );
 
 /* ── Alert Card ── */
-export const AlertCard = ({ alert, onRead }: { alert: any; onRead?: (id: string) => void }) => (
+export interface AlertCardItem {
+  id: string;
+  module: string;
+  summary: string;
+  created_at: string;
+  read: boolean;
+}
+
+export const AlertCard = ({ alert, onRead }: { alert: AlertCardItem; onRead?: (id: string) => void }) => (
   <div
     onClick={() => !alert.read && onRead?.(alert.id)}
     className={cn(

@@ -4,7 +4,7 @@ import { parse } from 'csv-parse';
 import unzipper from 'unzipper';
 import { Scraper } from './utils';
 import { pool } from '../db';
-import { runAlertEngine } from '../alerts/engine';
+import { runAlertEngineBatch } from '../alerts/engine';
 
 const BASE_URL = 'https://campaignfinance.in.gov/PublicSite/Docs/BulkDataDownloads';
 const START_YEAR = 2000;
@@ -91,8 +91,12 @@ function streamCsvFromZip(
   });
 }
 
-async function insertBatch(rows: ContribRow[], year: number): Promise<{ inserted: number }> {
+async function insertBatch(
+  rows: ContribRow[],
+  year: number
+): Promise<{ inserted: number; insertedRows: any[] }> {
   let inserted = 0;
+  let insertedRows: any[] = [];
 
   // Build a multi-row VALUES clause for efficiency
   const values: any[] = [];
@@ -123,22 +127,24 @@ async function insertBatch(rows: ContribRow[], year: number): Promise<{ inserted
     );
   }
 
-  if (placeholders.length === 0) return { inserted: 0 };
+  if (placeholders.length === 0) return { inserted: 0, insertedRows: [] };
 
   try {
     const res = await pool.query(
       `INSERT INTO campaign_contributions
          (candidate, committee, committee_type, donor_name, donor_type, amount, filed_date, cycle)
        VALUES ${placeholders.join(',')}
-       ON CONFLICT (donor_name, candidate, amount, filed_date) DO NOTHING`,
+       ON CONFLICT (donor_name, candidate, amount, filed_date) DO NOTHING
+       RETURNING *`,
       values
     );
     inserted = res.rowCount ?? 0;
+    insertedRows = res.rows;
   } catch (err) {
     console.error('[CampaignScraper] Batch insert error:', err);
   }
 
-  return { inserted };
+  return { inserted, insertedRows };
 }
 
 export class CampaignScraper implements Scraper {
@@ -164,8 +170,12 @@ export class CampaignScraper implements Scraper {
 
       try {
         yearRows = await streamCsvFromZip(url, async batch => {
-          const { inserted } = await insertBatch(batch, year);
+          const { inserted, insertedRows } = await insertBatch(batch, year);
           yearInserted += inserted;
+          // Evaluate alert rules against every row we actually inserted, per
+          // batch. Batching keeps this to one alert_rules query per batch
+          // rather than one per contribution.
+          await runAlertEngineBatch('campaign', insertedRows);
         });
       } catch (err) {
         console.error(`[CampaignScraper] Error on year ${year}:`, err);
@@ -184,17 +194,5 @@ export class CampaignScraper implements Scraper {
     }
 
     console.log(`[CampaignScraper] Done. Total rows: ${totalRows.toLocaleString()} | Inserted: ${totalInserted.toLocaleString()}`);
-
-    // Fire alert engine for the most recently inserted rows (sample)
-    if (totalInserted > 0) {
-      try {
-        const recent = await pool.query(
-          `SELECT * FROM campaign_contributions ORDER BY scraped_at DESC LIMIT 10`
-        );
-        for (const row of recent.rows) {
-          await runAlertEngine('campaign', row);
-        }
-      } catch {}
-    }
   }
 }

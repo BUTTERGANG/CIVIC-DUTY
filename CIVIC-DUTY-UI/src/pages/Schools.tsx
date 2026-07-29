@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, LayerGroup } from 'react-leafle
 import 'leaflet/dist/leaflet.css';
 import { ModuleBadge } from '../components/Shared';
 import { fetchSchools, School } from '../api';
-import { MapPin, GraduationCap, Users, X, Clock, Search } from 'lucide-react';
+import { GraduationCap, Users, X, Clock, Search } from 'lucide-react';
 import { timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 

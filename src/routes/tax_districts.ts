@@ -1,12 +1,15 @@
 // src/routes/tax_districts.ts
 import { Router } from 'express';
 import { pool } from '../db';
+import { clampLimit, clampOffset, sendError } from '../lib/http';
 
 const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { city, district_code, district_name, limit = 50, offset = 0 } = req.query;
+    const { city, district_code, district_name, limit: rawLimit, offset: rawOffset } = req.query;
+    const limit = clampLimit(rawLimit);
+    const offset = clampOffset(rawOffset);
     let query = 'SELECT * FROM tax_districts WHERE 1=1';
     const params: any[] = [];
 
@@ -28,8 +31,8 @@ router.get('/', async (req, res) => {
 
     const results = await pool.query(query, params);
     res.json(results.rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'TaxDistricts');
   }
 });
 
@@ -38,8 +41,8 @@ router.get('/:id', async (req, res) => {
     const result = await pool.query('SELECT * FROM tax_districts WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'TaxDistricts');
   }
 });
 

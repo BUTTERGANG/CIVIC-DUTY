@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { ModuleBadge, StatusChip, DocumentList, EmptyState } from '../components/Shared';
 import { SlidersHorizontal, Calendar, Building2, CheckCircle2, Clock } from 'lucide-react';
 import { fetchBids, Bid } from '../api';
-import { formatDate, timeAgo } from '../lib/format';
+import { formatDate, latestTimestamp, timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 
 const STATUS_COLORS: Record<string, string[]> = {
@@ -72,12 +72,7 @@ export default function Bids() {
     fetchBids(params)
       .then(rows => {
         setData(rows);
-        const latest = rows.reduce<string | null>((acc, r) => {
-          const raw = (r as any).scraped_at ?? (r as any).posted_date;
-          if (!raw) return acc;
-          if (!acc) return raw;
-          return new Date(raw) > new Date(acc) ? raw : acc;
-        }, null);
+        const latest = latestTimestamp(rows, ['scraped_at', 'posted_date']);
         setLastUpdated(latest);
       })
       .catch(e => {

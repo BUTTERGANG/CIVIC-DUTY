@@ -122,13 +122,23 @@ function epochToTimestamp(ms: number | null): string | null {
 function ringCentroid(rings: number[][][]): { x: number; y: number } | null {
   const outer = rings[0];
   if (!outer || outer.length === 0) return null;
+
+  // ArcGIS rings are closed: the first vertex is repeated as the last. Averaging
+  // it twice biases the result toward that corner, so drop the duplicate.
+  const first = outer[0];
+  const last = outer[outer.length - 1];
+  const isClosed =
+    outer.length > 1 && first[0] === last[0] && first[1] === last[1];
+  const verts = isClosed ? outer.slice(0, -1) : outer;
+  if (verts.length === 0) return null;
+
   let sumX = 0;
   let sumY = 0;
-  for (const [x, y] of outer) {
+  for (const [x, y] of verts) {
     sumX += x;
     sumY += y;
   }
-  return { x: sumX / outer.length, y: sumY / outer.length };
+  return { x: sumX / verts.length, y: sumY / verts.length };
 }
 
 // ── Base Scraper Class ───────────────────────────────────────────────────────
@@ -153,22 +163,7 @@ export class ArcgisScraper implements Scraper {
     const { serviceUrl, tableName, fieldMap, city, pageDelayMs, enableAlerts } = this.config as any;
     console.log(`[${this.module}] Starting ArcGIS scrape for ${city}...`);
 
-    // Collect all ArcGIS field names needed
-    const arcgisFields = new Set<string>();
-    for (const mapper of Object.values(fieldMap)) {
-      if (typeof mapper === 'string') {
-        arcgisFields.add(mapper);
-      } else if (typeof mapper === 'function' && (mapper as any).arcgisField) {
-        // epochDateField()/epochTimestampField() tag their returned function with the
-        // source field name — pick it up so it actually gets requested in outFields.
-        arcgisFields.add((mapper as any).arcgisField);
-      }
-    }
-    if (this.config.extraOutFields) {
-      for (const f of this.config.extraOutFields) arcgisFields.add(f);
-    }
-
-    const outFields = Array.from(arcgisFields).join(',');
+    const outFields = collectOutFields(fieldMap, this.config.extraOutFields).join(',');
 
     let allFeatures: {
       attributes: Record<string, any>;
@@ -340,6 +335,33 @@ export class ArcgisScraper implements Scraper {
 }
 
 // ── Convenience: epoch date/timestamp extractors ─────────────────────────────
+
+/**
+ * Every ArcGIS field name a fieldMap depends on, for the `outFields` request
+ * parameter. Anything missed here is silently returned as null by the service.
+ *
+ * The subtle case is function mappers: a mapper written as a plain closure
+ * reads `attrs.SOMETHING` at map time, but nothing at request time knows to
+ * ask for `SOMETHING`. epochDateField()/epochTimestampField() therefore tag
+ * their returned function with `.arcgisField`, and this reads that tag back.
+ * A missing tag starves the column with no error anywhere — the bug that left
+ * several date columns permanently null.
+ */
+export function collectOutFields(
+  fieldMap: ArcgisFieldMap,
+  extraOutFields?: string[]
+): string[] {
+  const fields = new Set<string>();
+  for (const mapper of Object.values(fieldMap)) {
+    if (typeof mapper === 'string') {
+      fields.add(mapper);
+    } else if (typeof mapper === 'function' && (mapper as any).arcgisField) {
+      fields.add((mapper as any).arcgisField);
+    }
+  }
+  for (const f of extraOutFields ?? []) fields.add(f);
+  return Array.from(fields);
+}
 
 export function epochDateField(arcgisField: string): (attrs: Record<string, any>) => string | null {
   const fn = (attrs: Record<string, any>) => epochToDate(attrs[arcgisField]);

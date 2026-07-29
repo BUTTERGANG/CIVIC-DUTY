@@ -35,9 +35,14 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
   const { selectedCity } = useCity();
   const [alerts, setAlerts] = useState<Alert[]>([]);
 
+  // Depend on the id rather than the user object: the effect only cares about
+  // which account is signed in, and this keeps the dependency list honest
+  // (referencing `user` while listing `user?.id` is what tripped exhaustive-deps).
+  const userId = user?.id ?? null;
+
   // Reload alerts whenever the logged-in user or city changes, then poll every 60s
   useEffect(() => {
-    if (!user) {
+    if (userId === null) {
       setAlerts([]);
       return;
     }
@@ -45,7 +50,7 @@ export function AlertsProvider({ children }: { children: ReactNode }) {
     load();
     const interval = setInterval(load, 60_000);
     return () => clearInterval(interval);
-  }, [user?.id, selectedCity]);
+  }, [userId, selectedCity]);
 
   const unreadCount = alerts.filter(a => !a.read).length;
 

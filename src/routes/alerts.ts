@@ -1,6 +1,7 @@
 // src/routes/alerts.ts
 import { Router } from 'express';
 import { pool } from '../db';
+import { sendError } from '../lib/http';
 import { requireAuth } from '../middleware/auth';
 
 const router = Router();
@@ -31,8 +32,8 @@ router.get('/', async (req, res) => {
     query += ' ORDER BY created_at DESC LIMIT 200';
     const result = await pool.query(query, params);
     res.json(result.rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Alerts');
   }
 });
 
@@ -51,8 +52,8 @@ router.get('/rules', async (req, res) => {
 
     const result = await pool.query(query, params);
     res.json(result.rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Alerts');
   }
 });
 
@@ -67,8 +68,8 @@ router.post('/rules', async (req, res) => {
       [String(req.user!.userId), city ?? 'fishers', module, keyword ?? null, radius_miles ?? null, lat ?? null, lng ?? null, email_enabled !== undefined ? email_enabled : true]
     );
     res.status(201).json(result.rows[0]);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Alerts');
   }
 });
 
@@ -87,8 +88,8 @@ router.patch('/rules/:id', async (req, res) => {
       return;
     }
     res.json(result.rows[0]);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Alerts');
   }
 });
 
@@ -104,8 +105,8 @@ router.delete('/rules/:id', async (req, res) => {
       return;
     }
     res.json({ deleted: true });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Alerts');
   }
 });
 
@@ -121,8 +122,8 @@ router.patch('/:id/read', async (req, res) => {
       return;
     }
     res.json(result.rows[0]);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Alerts');
   }
 });
 

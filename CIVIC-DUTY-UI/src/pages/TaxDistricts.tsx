@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, LayerGroup } from 'react-leafle
 import 'leaflet/dist/leaflet.css';
 import { ModuleBadge } from '../components/Shared';
 import { fetchTaxDistricts, TaxDistrict } from '../api';
-import { MapPin, Landmark, DollarSign, Percent, X, Clock, Search } from 'lucide-react';
+import { Landmark, DollarSign, Percent, X, Clock, Search } from 'lucide-react';
 import { timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 

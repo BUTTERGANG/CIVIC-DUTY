@@ -3,8 +3,10 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { pool } from '../db';
+import { sendError } from '../lib/http';
 import { config } from '../config';
 import { requireAuth } from '../middleware/auth';
+import { authLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -16,7 +18,7 @@ function signToken(userId: number, email: string): string {
 }
 
 // POST /api/auth/register
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   const { email, password, display_name } = req.body;
 
   if (!email || !password) {
@@ -43,13 +45,13 @@ router.post('/register', async (req, res) => {
     if (err.code === '23505') {
       res.status(409).json({ error: 'An account with that email already exists' });
     } else {
-      res.status(500).json({ error: err.message });
+      sendError(res, err, 'Auth');
     }
   }
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -77,8 +79,8 @@ router.post('/login', async (req, res) => {
 
     const token = signToken(user.id, user.email);
     res.json({ token, user: { id: user.id, email: user.email, display_name: user.display_name } });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Auth');
   }
 });
 
@@ -94,8 +96,8 @@ router.get('/me', requireAuth, async (req, res) => {
       return;
     }
     res.json(result.rows[0]);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Auth');
   }
 });
 

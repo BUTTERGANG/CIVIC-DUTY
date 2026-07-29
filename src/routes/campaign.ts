@@ -1,12 +1,15 @@
 // src/routes/campaign.ts
 import { Router } from 'express';
 import { pool } from '../db';
+import { clampLimit, clampOffset, sendError } from '../lib/http';
 
 const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { city, candidate, cycle, donor_type, donor_name, office, min_amount, max_amount, limit = 50, offset = 0 } = req.query;
+    const { city, candidate, cycle, donor_type, donor_name, office, min_amount, max_amount, limit: rawLimit, offset: rawOffset } = req.query;
+    const limit = clampLimit(rawLimit);
+    const offset = clampOffset(rawOffset);
     let query = 'SELECT * FROM campaign_contributions WHERE 1=1';
     const params: any[] = [];
 
@@ -51,8 +54,8 @@ router.get('/', async (req, res) => {
 
     const result = await pool.query(query, params);
     res.json(result.rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Campaign');
   }
 });
 
@@ -70,8 +73,8 @@ router.get('/candidates', async (req, res) => {
 
     const result = await pool.query(query, params);
     res.json(result.rows.map(r => r.candidate));
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Campaign');
   }
 });
 
@@ -89,8 +92,8 @@ router.get('/offices', async (req, res) => {
 
     const result = await pool.query(query, params);
     res.json(result.rows.map(r => r.office));
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Campaign');
   }
 });
 

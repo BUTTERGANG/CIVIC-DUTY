@@ -1,6 +1,7 @@
 // src/routes/dashboard.ts
 import { Router } from 'express';
 import { pool } from '../db';
+import { sendError } from '../lib/http';
 
 const router = Router();
 
@@ -66,8 +67,8 @@ router.get('/summary', async (req, res) => {
         court:     latestCourt.rows[0] || null,
       }
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Dashboard');
   }
 });
 
@@ -102,8 +103,8 @@ router.get('/freshness', async (req, res) => {
     });
 
     res.json(rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Dashboard');
   }
 });
 

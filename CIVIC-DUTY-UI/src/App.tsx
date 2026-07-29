@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { NavBar } from './components/Shared';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -5,21 +6,34 @@ import { AlertsProvider, useAlerts } from './context/AlertsContext';
 import { ToastProvider } from './context/ToastContext';
 import { CityProvider } from './context/CityContext';
 
-// Pages
+// Login is eager: it's what an unauthenticated visitor sees first, so making
+// them wait on a second round trip for it would be backwards.
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Council from './pages/Council';
-import Bids from './pages/Bids';
-import Zoning from './pages/Zoning';
-import Campaign from './pages/Campaign';
-import Court from './pages/Court';
-import Alerts from './pages/Alerts';
-import Parcels from './pages/Parcels';
-import Buildings from './pages/Buildings';
-import Schools from './pages/Schools';
-import Parks from './pages/Parks';
-import Polling from './pages/Polling';
-import TaxDistricts from './pages/TaxDistricts';
+
+// Every other page is split out. Loaded together they were a single ~890KB
+// bundle — Leaflet (Zoning, and the GIS pages) and Recharts (Dashboard) are
+// most of that, and neither is needed to render the page you actually landed on.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Council = lazy(() => import('./pages/Council'));
+const Bids = lazy(() => import('./pages/Bids'));
+const Zoning = lazy(() => import('./pages/Zoning'));
+const Campaign = lazy(() => import('./pages/Campaign'));
+const Court = lazy(() => import('./pages/Court'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const Parcels = lazy(() => import('./pages/Parcels'));
+const Buildings = lazy(() => import('./pages/Buildings'));
+const Schools = lazy(() => import('./pages/Schools'));
+const Parks = lazy(() => import('./pages/Parks'));
+const Polling = lazy(() => import('./pages/Polling'));
+const TaxDistricts = lazy(() => import('./pages/TaxDistricts'));
+
+function PageFallback() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div className="text-slate-600 text-sm animate-pulse">Loading…</div>
+    </div>
+  );
+}
 
 function AppShell() {
   const { user, loading, logout } = useAuth();
@@ -72,21 +86,23 @@ function AppShell() {
       <NavBar unreadCount={unreadCount} user={user} onLogout={logout} />
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 z-10 animate-fade-in relative">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/council" element={<Council />} />
-          <Route path="/bids" element={<Bids />} />
-          <Route path="/zoning" element={<Zoning />} />
-          <Route path="/campaign" element={<Campaign />} />
-          <Route path="/court" element={<Court />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/parcels" element={<Parcels />} />
-          <Route path="/buildings" element={<Buildings />} />
-          <Route path="/schools" element={<Schools />} />
-          <Route path="/parks" element={<Parks />} />
-          <Route path="/polling" element={<Polling />} />
-          <Route path="/tax-districts" element={<TaxDistricts />} />
-        </Routes>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/council" element={<Council />} />
+            <Route path="/bids" element={<Bids />} />
+            <Route path="/zoning" element={<Zoning />} />
+            <Route path="/campaign" element={<Campaign />} />
+            <Route path="/court" element={<Court />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="/parcels" element={<Parcels />} />
+            <Route path="/buildings" element={<Buildings />} />
+            <Route path="/schools" element={<Schools />} />
+            <Route path="/parks" element={<Parks />} />
+            <Route path="/polling" element={<Polling />} />
+            <Route path="/tax-districts" element={<TaxDistricts />} />
+          </Routes>
+        </Suspense>
       </main>
 
       <div className="fixed bottom-0 inset-x-0 h-32 bg-gradient-to-t from-background to-transparent pointer-events-none z-10" />

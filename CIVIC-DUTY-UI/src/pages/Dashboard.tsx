@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { Link } from 'react-router-dom';
 import { ModuleBadge, AlertCard } from '../components/Shared';
-import { ArrowRight, TrendingUp, Shield, Car, AlertTriangle, Phone } from 'lucide-react';
+import { ArrowRight, TrendingUp } from 'lucide-react';
 import {
   fetchDashboardSummary, fetchCouncil, fetchBids,
   CouncilVote, Bid, DashboardSummary,
@@ -49,7 +49,7 @@ const INDY_STAT_META = [
 ] as const;
 
 export default function Dashboard() {
-  const { selectedCity, currentCity } = useCity();
+  const { selectedCity } = useCity();
   const { alerts, unreadCount, markRead } = useAlerts();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [recentCouncil, setRecentCouncil] = useState<CouncilVote[]>([]);

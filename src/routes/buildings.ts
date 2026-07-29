@@ -1,13 +1,16 @@
 // src/routes/buildings.ts
 import { Router } from 'express';
 import { pool } from '../db';
+import { clampLimit, clampOffset, sendError } from '../lib/http';
 import { calculateDistance } from '../scrapers/utils';
 
 const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const { city, lat, lng, radius_miles, limit = 50, offset = 0 } = req.query;
+    const { city, lat, lng, radius_miles, limit: rawLimit, offset: rawOffset } = req.query;
+    const limit = clampLimit(rawLimit);
+    const offset = clampOffset(rawOffset);
     let query = 'SELECT * FROM buildings WHERE 1=1';
     const params: any[] = [];
 
@@ -34,8 +37,8 @@ router.get('/', async (req, res) => {
     }
 
     res.json(results.rows);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Buildings');
   }
 });
 
@@ -44,8 +47,8 @@ router.get('/:id', async (req, res) => {
     const result = await pool.query('SELECT * FROM buildings WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Buildings');
   }
 });
 

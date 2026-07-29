@@ -3,7 +3,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } 
 import { ModuleBadge, EmptyState } from '../components/Shared';
 import { Users, ChevronLeft, ChevronRight, Search, Clock } from 'lucide-react';
 import { fetchCampaign, fetchCampaignCandidates, CampaignContribution } from '../api';
-import { formatDate, timeAgo } from '../lib/format';
+import { formatDate, latestTimestamp, timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 
 const COLORS = ['#3ea8ff', '#10d98a', '#f5a623', '#a78bfa', '#f04459'];
@@ -11,7 +11,13 @@ const PAGE_SIZE = 50;
 const CURRENT_YEAR = new Date().getFullYear();
 const CYCLES = Array.from({ length: CURRENT_YEAR - 1999 }, (_, i) => String(CURRENT_YEAR - i));
 
-const CustomTooltip = ({ active, payload }: any) => {
+/** The subset of Recharts' tooltip payload this chart actually reads. */
+interface TooltipProps {
+  active?: boolean;
+  payload?: { name: string; value: number }[];
+}
+
+const CustomTooltip = ({ active, payload }: TooltipProps) => {
   if (active && payload && payload.length) {
     return (
       <div className="glass px-3 py-2 rounded-xl border border-white/10 text-sm">
@@ -56,12 +62,7 @@ export default function Campaign() {
     fetchCampaign(params)
       .then(data => {
         setRows(data);
-        const latest = data.reduce<string | null>((acc, r) => {
-          const raw = (r as any).scraped_at ?? (r as any).filed_date;
-          if (!raw) return acc;
-          if (!acc) return raw;
-          return new Date(raw) > new Date(acc) ? raw : acc;
-        }, null);
+        const latest = latestTimestamp(data, ['scraped_at', 'filed_date']);
         setLastUpdated(latest);
       })
       .catch(err => {

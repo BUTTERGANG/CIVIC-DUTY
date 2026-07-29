@@ -30,7 +30,7 @@ async function upsertBid(item: {
   category: string | null;
   status: string;
   documents: string[];
-}): Promise<boolean> {
+}): Promise<{ id: number | null; isNew: boolean }> {
   if (item.bid_id) {
     // Rows with a bid_id: conflict on (source, bid_id)
     const res = await pool.query(
@@ -50,7 +50,7 @@ async function upsertBid(item: {
       [item.source, item.bid_id, item.title, item.agency, item.description,
        item.contact, item.posted_date, item.close_date, item.category, item.status, item.documents]
     );
-    return res.rows[0]?.is_insert === true;
+    return { id: res.rows[0]?.id ?? null, isNew: res.rows[0]?.is_insert === true };
   } else {
     // Rows without a bid_id (Fishers, IDOA upcoming): conflict on partial index (source, title)
     const res = await pool.query(
@@ -69,7 +69,7 @@ async function upsertBid(item: {
       [item.source, item.title, item.agency, item.description,
        item.contact, item.posted_date, item.close_date, item.category, item.status, item.documents]
     );
-    return res.rows[0]?.is_insert === true;
+    return { id: res.rows[0]?.id ?? null, isNew: res.rows[0]?.is_insert === true };
   }
 }
 
@@ -124,7 +124,7 @@ async function scrapeFishersBids(): Promise<number> {
     for (const item of items) {
       if (!item.title || item.title.length < 6) continue;
       try {
-        const isNew = await upsertBid({
+        const { id, isNew } = await upsertBid({
           source: 'fishers',
           bid_id: null,
           title: item.title,
@@ -139,7 +139,7 @@ async function scrapeFishersBids(): Promise<number> {
         });
         if (isNew) {
           inserted++;
-          await runAlertEngine('bids', { title: item.title, source: 'fishers' });
+          await runAlertEngine('bids', { id, title: item.title, source: 'fishers' });
         }
       } catch (err) {
         console.error('[BidsScraper] Fishers upsert error:', err);
@@ -207,7 +207,7 @@ async function scrapeIdoaCurrent(): Promise<number> {
           : row.docUrl;
 
         try {
-          const isNew = await upsertBid({
+          const { id, isNew } = await upsertBid({
             source: 'idoa',
             bid_id: row.eventId || null,
             title: row.title,
@@ -222,7 +222,7 @@ async function scrapeIdoaCurrent(): Promise<number> {
           });
           if (isNew) {
             inserted++;
-            await runAlertEngine('bids', { title: row.title, source: 'idoa' });
+            await runAlertEngine('bids', { id, title: row.title, source: 'idoa' });
           }
         } catch (err) {
           console.error('[BidsScraper] IDOA upsert error:', err);
@@ -274,7 +274,7 @@ async function scrapeIdoaUpcoming(): Promise<number> {
 
     for (const row of rows) {
       try {
-        const isNew = await upsertBid({
+        const { isNew } = await upsertBid({
           source: 'idoa_upcoming',
           bid_id: null,
           title: row.title,

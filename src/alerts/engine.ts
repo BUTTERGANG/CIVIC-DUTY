@@ -3,42 +3,53 @@ import { pool } from '../db';
 import { calculateDistance } from '../scrapers/utils';
 import { sendAlertEmail } from '../email';
 
-export async function runAlertEngine(module: string, record: any) {
+/** Does one record trip one rule? Pure — no I/O, so it's directly testable. */
+export function ruleMatches(rule: any, record: any): boolean {
+  // Keyword match (title, description, parties etc.)
+  if (rule.keyword) {
+    const searchString = JSON.stringify(record).toLowerCase();
+    if (searchString.includes(rule.keyword.toLowerCase())) return true;
+  }
+
+  // Geo match (address_radius_miles)
+  if (rule.radius_miles && rule.lat && rule.lng && record.lat && record.lng) {
+    const dist = calculateDistance(rule.lat, rule.lng, record.lat, record.lng);
+    if (dist <= rule.radius_miles) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Evaluate a batch of new records against a module's alert rules.
+ *
+ * Batched deliberately: the rules are fetched once for the whole batch rather
+ * than once per record. The campaign scraper ingests 27 years of statewide
+ * contributions in a run, and a per-record rules query there meant hundreds of
+ * thousands of round-trips.
+ */
+export async function runAlertEngineBatch(module: string, records: any[]) {
+  if (records.length === 0) return;
+
   try {
-    // Fetch all alert rules for the module
     const rulesRes = await pool.query('SELECT * FROM alert_rules WHERE module = $1', [module]);
     const rules = rulesRes.rows;
+    if (rules.length === 0) return;
+
     const matches: any[] = [];
-    // Keep rule metadata alongside matches for email delivery (not persisted)
-    const matchedRules: any[] = [];
+    // Keep rule + record alongside matches for email delivery (not persisted)
+    const matchedPairs: { rule: any; record: any }[] = [];
 
-    for (const rule of rules) {
-      let isMatch = false;
-
-      // Keyword match (title, description, parties etc.)
-      if (rule.keyword) {
-        const searchString = JSON.stringify(record).toLowerCase();
-        if (searchString.includes(rule.keyword.toLowerCase())) {
-          isMatch = true;
-        }
-      }
-
-      // Geo match (address_radius_miles)
-      if (rule.radius_miles && rule.lat && rule.lng && record.lat && record.lng) {
-        const dist = calculateDistance(rule.lat, rule.lng, record.lat, record.lng);
-        if (dist <= rule.radius_miles) {
-          isMatch = true;
-        }
-      }
-
-      if (isMatch) {
+    for (const record of records) {
+      for (const rule of rules) {
+        if (!ruleMatches(rule, record)) continue;
         matches.push({
           user_id: rule.user_id,
           module: module,
           message: `New ${module} record matched your alert rule ${rule.id}`,
-          item_id: record.id,
+          item_id: record.id ?? null,
         });
-        matchedRules.push(rule);
+        matchedPairs.push({ rule, record });
       }
     }
 
@@ -58,8 +69,7 @@ export async function runAlertEngine(module: string, record: any) {
       console.log(`[AlertEngine] Inserted ${matches.length} new alerts for module ${module}`);
 
       // Fire-and-forget email delivery for rules with email_enabled
-      for (let i = 0; i < matchedRules.length; i++) {
-        const rule = matchedRules[i];
+      for (const { rule, record } of matchedPairs) {
         if (rule.email_enabled !== false) {
           // Non-blocking: do not await — email failures must never break the alert engine
           deliverAlertEmail(rule.user_id, module, rule, record).catch(() => {});
@@ -69,6 +79,11 @@ export async function runAlertEngine(module: string, record: any) {
   } catch (err) {
     console.error('[AlertEngine] Error pushing alerts:', err);
   }
+}
+
+/** Single-record convenience wrapper for the low-volume scrapers. */
+export async function runAlertEngine(module: string, record: any) {
+  return runAlertEngineBatch(module, [record]);
 }
 
 /**

@@ -5,6 +5,7 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { setupScheduler } from './scheduler';
+import { apiLimiter } from './middleware/rateLimit';
 
 // Routers
 import councilRouter from './routes/council';
@@ -30,8 +31,17 @@ import taxDistrictsRouter from './routes/tax_districts';
 
 const app = express();
 
+// Replit, and most PaaS hosts, terminate TLS at a proxy. Without this every
+// request appears to come from the proxy's IP and the rate limiters below
+// would share one bucket across all callers.
+app.set('trust proxy', 1);
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+
+// Baseline limit for the whole API. Per-route limiters (auth, court lookup)
+// are stricter and layer on top of this.
+app.use('/api', apiLimiter);
 
 // Mount routers
 app.use('/api/council', councilRouter);

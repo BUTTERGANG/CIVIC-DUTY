@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, LayerGroup } from 'react-leafle
 import 'leaflet/dist/leaflet.css';
 import { ModuleBadge } from '../components/Shared';
 import { fetchPollingLocations, PollingLocation } from '../api';
-import { MapPin, Vote, MapPin as AddressIcon, Clock, X, Search } from 'lucide-react';
+import { Vote, MapPin as AddressIcon, Clock, X, Search } from 'lucide-react';
 import { timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 

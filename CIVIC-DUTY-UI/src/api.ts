@@ -13,10 +13,6 @@ async function get<T>(path: string): Promise<T> {
   return res.json();
 }
 
-function cityQs(city?: string): string {
-  return city ? `?city=${encodeURIComponent(city)}` : '';
-}
-
 function cityParam(params: Record<string, string>): Record<string, string> {
   const city = localStorage.getItem('cd_selected_city') ?? 'fishers';
   return { ...params, city };

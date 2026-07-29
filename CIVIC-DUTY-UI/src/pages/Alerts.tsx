@@ -3,7 +3,7 @@ import { AlertCard, ModuleBadge } from '../components/Shared';
 import { useAlerts } from '../context/AlertsContext';
 import { fetchAlertRules, apiCreateAlertRule, apiDeleteAlertRule, AlertRule } from '../api';
 import { BellRing, Plus, CheckCheck, MapPin, Tag, X, Trash2 } from 'lucide-react';
-import { formatDate } from '../lib/format';
+import { errorMessage, formatDate } from '../lib/format';
 
 const MODULES = ['council', 'bids', 'zoning', 'campaign', 'court'] as const;
 
@@ -37,8 +37,8 @@ function AddRuleModal({ onClose, onSaved }: { onClose: () => void; onSaved: (rul
       });
       onSaved(rule);
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }

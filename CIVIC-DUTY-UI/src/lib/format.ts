@@ -46,3 +46,35 @@ export function timeAgo(iso: string | null | undefined): string {
   const months = Math.floor(days / 30);
   return `${months}mo ago`;
 }
+
+/** Message from an unknown thrown value, for surfacing in the UI. */
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/**
+ * Newest timestamp across a set of rows, used for the "last updated" labels.
+ * Rows carry their freshness on different columns depending on the table
+ * (scraped_at, posted_date, filed_date, …), so the caller names the candidates
+ * in priority order.
+ */
+export function latestTimestamp<T extends object>(
+  rows: readonly T[],
+  fields: readonly (keyof T | string)[]
+): string | null {
+  let latest: string | null = null;
+  for (const row of rows) {
+    const record = row as Record<string, unknown>;
+    let raw: string | null = null;
+    for (const field of fields) {
+      const value = record[field as string];
+      if (typeof value === 'string' && value) {
+        raw = value;
+        break;
+      }
+    }
+    if (!raw) continue;
+    if (!latest || new Date(raw) > new Date(latest)) latest = raw;
+  }
+  return latest;
+}

@@ -1,6 +1,7 @@
 // src/routes/cities.ts
 import { Router } from 'express';
 import { pool } from '../db';
+import { sendError } from '../lib/http';
 
 const router = Router();
 
@@ -60,8 +61,8 @@ router.get('/', async (_req, res) => {
     }));
 
     res.json({ cities });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Cities');
   }
 });
 
@@ -92,8 +93,8 @@ router.get('/:id', async (req, res) => {
         incidents: parseInt(incidentsCount.rows[0].count, 10),
       },
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Cities');
   }
 });
 

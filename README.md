@@ -244,6 +244,21 @@ npm start              # node dist/server.js
 
 ---
 
+## Tests
+
+```bash
+npm test        # backend unit tests (node:test, no extra deps)
+```
+
+Covers the ArcGIS request/response mapping layer and the alert rule matcher —
+the two places where a mistake is silent rather than loud. A wrong ArcGIS field
+name yields a null column, not an error, which is how all six Indianapolis
+scrapers ran against a non-existent schema for months; `collectOutFields` and
+`mapFeature` are pinned against fixture payloads so that fails visibly now.
+
+Tests live in `src/__tests__` and are excluded from `tsc` output, so they don't
+ship in the production build.
+
 ## Running scrapers manually
 
 ```bash
@@ -308,6 +323,25 @@ Court is on-demand only — no scheduled cron run.
 | `POST` | `/api/auth/login` | Body: `{ email, password }` → `{ token, user }` |
 | `GET` | `/api/auth/me` | Bearer token required → `{ id, email, display_name }` |
 
+### Limits and error responses
+
+Every list endpoint takes `limit` (default 50, **capped at 500**) and `offset`.
+Values above the cap, or junk, are coerced rather than rejected — see
+`src/lib/http.ts`.
+
+Rate limits (`src/middleware/rateLimit.ts`), returned with `RateLimit-*` headers:
+
+| Scope | Limit |
+|---|---|
+| `/api/*` | 600 per 15 min |
+| `POST /api/auth/login`, `/register` | 10 per 15 min (successful logins don't count) |
+| `POST /api/court/lookup` | 20 per hour, per user |
+
+5xx responses return `{ "error": "Internal server error", "ref": "<id>" }`. The
+underlying error is logged server-side against that same ref — quote it when
+reporting a failure. Error text is never returned to the caller, since Postgres
+messages name tables, columns and constraints.
+
 ### Data (public read)
 | Method | Path | Query params | Notes |
 |---|---|---|---|
@@ -321,7 +355,7 @@ Court is on-demand only — no scheduled cron run.
 | `GET` | `/api/zoning` | `source`, `status`, `from`, `to`, `lat`, `lng`, `radius_miles`, `limit`, `offset` | Ordered by `scraped_at DESC` <details><summary>Example response</summary>\n\n```json\n[\n  {\n    \"id\": 101,\n    \"source\": \"public_notice\",\n    \"docket\": \"RZ-24-1\",\n    \"address\": \"123 Main St, Fishers, IN\",\n    \"request_type\": \"Rezoning\",\n    \"status\": \"scheduled\",\n    \"hearing_date\": \"2024-05-10T18:00:00.000Z\",\n    \"lat\": 39.95,\n    \"lng\": -86.01\n  }\n]\n```\n\n</details> |
 | `GET` | `/api/zoning/:id` | — | |
 | `GET` | `/api/court` | `limit`, `offset` | Cached cases only |
-| `POST` | `/api/court/lookup` | Body: `{ case_number }` | Checks DB cache first; Playwright fetch on miss |
+| `POST` | `/api/court/lookup` | Body: `{ case_number }` | **Bearer JWT required**, 20/hour per user. Checks DB cache first; Playwright fetch on miss |
 | `GET` | `/api/dashboard/summary` | — | Counts + latest item per module |
 | `GET` | `/api/cities` | — | City metadata (display name, modules, live counts). Only `fishers` and `indy` are defined in `CITY_META` — Hamilton County (`hamco`) data has no city-level entry here since it's county-scoped |
 
@@ -376,7 +410,7 @@ All of the above also support `GET /:id`. None of these five public-safety resou
   - Fixing this also surfaced a real bug in the shared `ArcgisScraper` base class: fields referenced only inside a custom mapper *function* (as opposed to a plain string field name) were never added to the ArcGIS `outFields` request — silently starving that column. `epochDateField()`/`epochTimestampField()` now tag their returned function with the source field name so the base class picks it up; this also fixes `hamco_parcels.ts`'s `last_sale_date`, which had the same silent gap.
   - This service is assessment data only — no zoning, year-built, or sale-history fields exist on it, so `zoning`, `year_built`, `last_sale_date`, `last_sale_price`, `building_area_sqft` stay null for Indianapolis parcels (not a bug — just not published here).
 - **`campaign_expenditures` is a dead table.** Migration `001_scraper_log_and_expenditures.sql` created it, but no scraper writes to it and no route reads from it. See `SCRUM/Backlog/fcpa_expenditure_ingestion.md`.
-- **CI typecheck/build gates don't fail the build.** ~~`.github/workflows/ci.yml` has `continue-on-error: true`~~ — fixed 2026-07-17, the backend typecheck/build steps are now hard gates. Frontend ESLint's `continue-on-error` is still soft (unverified — frontend `node_modules` wasn't installed in the environment this was checked from).
+- ~~**CI typecheck/build gates don't fail the build.**~~ All CI gates are now hard: backend typecheck, backend unit tests, backend build, frontend typecheck/build, frontend ESLint, and the Postgres smoke test. `continue-on-error` is gone from the workflow.
 - **`hamco_buildings` has no municipality field** — the county GIS layer doesn't identify which city a building is in, so `city` is hardcoded to `'hamco'` pending a spatial join against corporate limits (same issue `hamco_parcels` solves via its `CORPLIMIT` field).
 
 ---

@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ModuleBadge, StatusChip, EmptyState } from '../components/Shared';
-import { Search, Clock, User, Scale, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Clock, Scale, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchCourt, lookupCourtCase, CourtCase } from '../api';
-import { formatDate, formatDateTime, timeAgo } from '../lib/format';
+import { errorMessage, formatDate, formatDateTime, latestTimestamp, timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 
 const CASE_NUM_RE = /^\d{2}[A-Z]\d{2}-\d{4}-[A-Z]{1,3}-\d+$/i;
@@ -87,15 +87,10 @@ export default function Court() {
         const total = Array.isArray(resp) ? data.length : (resp.total ?? data.length);
         setCases(data);
         setTotalCount(total);
-        const latest = data.reduce<string | null>((acc, r) => {
-          const raw = r.scraped_at ?? r.filed_date;
-          if (!raw) return acc;
-          if (!acc) return raw;
-          return new Date(raw) > new Date(acc) ? raw : acc;
-        }, null);
+        const latest = latestTimestamp(data, ['scraped_at', 'filed_date']);
         setLastUpdated(latest);
       })
-      .catch(err => showError(`Failed to load court cases: ${err.message}`))
+      .catch(err => showError(`Failed to load court cases: ${errorMessage(err)}`))
       .finally(() => setLoadingCases(false));
   }, [page, showError]);
 
@@ -122,9 +117,9 @@ export default function Court() {
       setCases(prev => prev.some(c => c.case_number === result.case.case_number)
         ? prev
         : [result.case, ...prev]);
-    } catch (err: any) {
-      setLookupError(err.message);
-      showError(err.message);
+    } catch (err) {
+      setLookupError(errorMessage(err));
+      showError(errorMessage(err));
     } finally {
       setLooking(false);
     }

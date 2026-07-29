@@ -1,6 +1,9 @@
 // src/routes/court.ts
 import { Router } from 'express';
 import { pool } from '../db';
+import { clampLimit, clampOffset, sendError } from '../lib/http';
+import { requireAuth } from '../middleware/auth';
+import { courtLookupLimiter } from '../middleware/rateLimit';
 import { lookupCaseByNumber, saveCaseRecord } from '../scrapers/court';
 
 const router = Router();
@@ -8,7 +11,9 @@ const router = Router();
 // GET /api/court  — list cached cases
 router.get('/', async (req, res) => {
   try {
-    const { city, case_type, status, party, from, to, limit = 50, offset = 0 } = req.query;
+    const { city, case_type, status, party, from, to, limit: rawLimit, offset: rawOffset } = req.query;
+    const limit = clampLimit(rawLimit);
+    const offset = clampOffset(rawOffset);
     let query = 'SELECT * FROM court_cases WHERE 1=1';
     const params: any[] = [];
 
@@ -33,13 +38,17 @@ router.get('/', async (req, res) => {
 
     const result = await pool.query(query, params);
     res.json({ total, rows: result.rows });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Court');
   }
 });
 
-// POST /api/court/lookup  — on-demand case number lookup via MyCase
-router.post('/lookup', async (req, res) => {
+// POST /api/court/lookup  — on-demand case number lookup via MyCase.
+// Auth + a tight rate limit are load-bearing here, not defence in depth: a
+// cache miss launches a headless Chromium and hits Indiana's MyCase site from
+// our IP. Left open, this is both a trivial way to exhaust the instance and a
+// good way to get the upstream source to block us.
+router.post('/lookup', requireAuth, courtLookupLimiter, async (req, res) => {
   const { case_number } = req.body;
   if (!case_number?.trim()) {
     res.status(400).json({ error: 'case_number is required' });
@@ -79,8 +88,8 @@ router.get('/:id', async (req, res) => {
     const result = await pool.query('SELECT * FROM court_cases WHERE id = $1', [req.params.id]);
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err) {
+    sendError(res, err, 'Court');
   }
 });
 

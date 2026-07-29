@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { ModuleBadge, StatusChip, DocumentList, EmptyState } from '../components/Shared';
 import { Search, SlidersHorizontal, ChevronDown, ChevronRight, FileText, Clock } from 'lucide-react';
 import { fetchCouncil, CouncilVote, AgendaItem } from '../api';
-import { formatDate, timeAgo } from '../lib/format';
+import { formatDate, latestTimestamp, timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 
 function AgendaPanel({ items }: { items: AgendaItem[] }) {
@@ -148,12 +148,7 @@ export default function Council() {
       .then(rows => {
         setData(rows);
         // Find the most recent scraped_at across all rows
-        const latest = rows.reduce<string | null>((acc, r) => {
-          const raw = (r as any).scraped_at ?? (r as any).date;
-          if (!raw) return acc;
-          if (!acc) return raw;
-          return new Date(raw) > new Date(acc) ? raw : acc;
-        }, null);
+        const latest = latestTimestamp(rows, ['scraped_at', 'date']);
         setLastUpdated(latest);
       })
       .catch(e => {
