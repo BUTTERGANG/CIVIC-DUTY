@@ -19,15 +19,19 @@ A civic data aggregator covering **Fishers, Indianapolis, and Hamilton County, I
 ```
 CIVIC-DUTY/
 ├── src/
-│   ├── server.ts              # Express API server (port from PORT env, default 3001)
+│   ├── server.ts              # Express API + serves the built SPA (port from PORT env, default 3001)
+│   ├── config.ts              # Loads .env; hard-fails at boot on missing DATABASE_URL/JWT_SECRET
 │   ├── scheduler.ts           # node-cron jobs — see "Scraper schedules" below; wraps every scraper
 │   │                          # in scheduleWithLogging() → writes scraper_log rows for freshness tracking
 │   ├── db/
 │   │   ├── schema.sql         # Table definitions + safe migrations (ALTER TABLE IF NOT EXISTS)
-│   │   ├── index.ts           # pg Pool — reads DATABASE_URL from .env
+│   │   ├── index.ts           # pg Pool — connection string from config.ts (no localhost fallback)
 │   │   └── init.ts            # Runs schema.sql on startup
 │   ├── middleware/
-│   │   └── auth.ts            # requireAuth — verifies Bearer JWT, attaches req.user
+│   │   ├── auth.ts            # requireAuth — verifies Bearer JWT, attaches req.user
+│   │   └── rateLimit.ts       # api/auth/court-lookup limiters — see "Limits and error responses"
+│   ├── lib/
+│   │   └── http.ts            # clampLimit/clampOffset pagination bounds; sendError (no leaked pg text)
 │   ├── scrapers/
 │   │   ├── utils.ts           # Scraper interface, withBrowser() Playwright helper, Haversine distance
 │   │   ├── council.ts         # CivicClerk OData API → council_votes; calls pdf.ts after sync
@@ -68,7 +72,12 @@ CIVIC-DUTY/
 │   │   └── buildings.ts, schools.ts, parks.ts, polling.ts, tax_districts.ts
 │   │                          # GET /api/<resource>  (city + resource-specific filters) + /:id
 │   └── alerts/
-│       └── engine.ts          # Keyword + geo rule matching; fires on each new scraper insert
+│       └── engine.ts          # Keyword + geo rule matching. runAlertEngineBatch() evaluates a
+│                              # batch against one rules fetch; ruleMatches() is the pure predicate
+│   └── __tests__/             # node:test suites — ArcGIS mapping, alert rules, pagination clamps
+│                              # (excluded from tsc output; see "Tests")
+├── .replit / replit.nix        # Replit config — Reserved VM, Nix chromium. See "Deploying"
+├── Dockerfile                  # Multi-stage build: tsc backend + vite frontend → lean runtime image
 ├── run-scraper.ts              # Manual runner: npx ts-node run-scraper.ts [council|bids|campaign|zoning|...]
 └── CIVIC-DUTY-UI/
     └── src/
@@ -105,6 +114,8 @@ CIVIC-DUTY/
 - `pdf-parse` — Minutes + Agenda PDF text extraction
 - `unzipper` + `csv-parse` — FCPA ZIP/CSV streaming pipeline
 - `node-cron` — scheduled scraper runs
+- `express-rate-limit` — auth, court-lookup and global API throttling
+- `node:test` — unit tests, no external test framework
 
 **Frontend**
 - React + TypeScript + Vite 8
@@ -113,6 +124,7 @@ CIVIC-DUTY/
 - Recharts — sparklines and donut charts
 - React Leaflet — zoning map with two layer groups (notices + dev projects)
 - Lucide icons
+- Route-level code splitting via `React.lazy` — Leaflet and Recharts load only with the pages that use them (`src/App.tsx`)
 
 ---
 
@@ -406,7 +418,7 @@ All of the above also support `GET /:id`. None of these five public-safety resou
 - **MyCase CAPTCHA risk:** The MyCase court records site has a CAPTCHA. The current on-demand lookup is low-risk, but bulk scraping is not implemented and not recommended.
 - **All 6 Indianapolis ArcGIS scrapers pointed at a dead domain until 2026-07-17.** `maps.indy.gov/arcgis/rest/services/...` 404'd entirely — not just `incidents`, all six (citations, crashes, incidents, use-of-force, 311, parcels) were built against a URL pattern and field schema that never existed in production. Real service catalog is `gis.indy.gov/server/rest/services/...`, discovered via ArcGIS Online's search API, with completely different field names (e.g. citations: `CitationNumber`/`Violation_Desc`, not `CITATION_ID`/`VIOLATION`). All 6 have been rewritten and live-verified against real data. See git history on `src/scrapers/indy_*.ts` and `src/scrapers/arcgis.ts` for details.
   - `incidents` (IMPD NIBRS) and `use_of_force` are non-spatial ArcGIS **Tables** — no address or lat/lng is published for either (privacy — Use of Force's `Gen_Address` is deliberately generalized). `hasGeometry: false` reflects that; don't expect these two to ever populate `lat`/`lng`.
-  - `parcels` (Indianapolis) is a **polygon** layer. ArcGIS's `returnCentroid` param is accepted by this particular instance but silently doesn't populate `centroid` in the response, so `arcgis.ts` falls back to a vertex-average centroid computed from the polygon rings (`ringCentroid()`). This is an approximation, not a true area-weighted centroid — fine for small parcels, would drift on very irregular large polygons.
+  - `parcels` (Indianapolis) is a **polygon** layer. ArcGIS's `returnCentroid` param is accepted by this particular instance but silently doesn't populate `centroid` in the response, so `arcgis.ts` falls back to a vertex-average centroid computed from the polygon rings (`ringCentroid()`). It skips the closing vertex, which ArcGIS repeats from the first point — averaging it twice biased every centroid toward that corner (fixed 2026-07-29, covered by `src/__tests__/arcgis.test.ts`). Still an approximation rather than a true area-weighted centroid: fine for small parcels, would drift on very irregular large polygons.
   - Fixing this also surfaced a real bug in the shared `ArcgisScraper` base class: fields referenced only inside a custom mapper *function* (as opposed to a plain string field name) were never added to the ArcGIS `outFields` request — silently starving that column. `epochDateField()`/`epochTimestampField()` now tag their returned function with the source field name so the base class picks it up; this also fixes `hamco_parcels.ts`'s `last_sale_date`, which had the same silent gap.
   - This service is assessment data only — no zoning, year-built, or sale-history fields exist on it, so `zoning`, `year_built`, `last_sale_date`, `last_sale_price`, `building_area_sqft` stay null for Indianapolis parcels (not a bug — just not published here).
 - **`campaign_expenditures` is a dead table.** Migration `001_scraper_log_and_expenditures.sql` created it, but no scraper writes to it and no route reads from it. See `SCRUM/Backlog/fcpa_expenditure_ingestion.md`.
@@ -444,8 +456,9 @@ Cross-project roadmap lives in `SCRUM/06_Programs/civic-duty/context.md`; in-rep
 
 1. ~~Verify the `indy_incidents.ts` ArcGIS URL.~~ **Done 2026-07-17** — turned out all 6 Indianapolis ArcGIS scrapers pointed at a dead domain, not just incidents. Real endpoints found and all 6 rewritten + live-verified against real data; see "Known issues" above for specifics (2 are non-spatial with no address/lat/lng by design, parcels needed a client-side centroid fallback). Also fixed a latent base-class bug (`arcgis.ts`) where function-mapped fields never made it into the ArcGIS request, silently starving date columns across multiple scrapers including `hamco_parcels.ts`.
 2. **Decide the fate of `campaign_expenditures`.** Table exists, nothing writes to it. Either finish `SCRUM/Backlog/fcpa_expenditure_ingestion.md` (wire up scraper + `/api/campaign/expenditures` route) or drop the table.
-3. ~~Remove `continue-on-error` from CI once confident.~~ **Done 2026-07-17** — backend typecheck/build are now hard gates. Frontend ESLint gate is still soft (unverified).
+3. ~~Remove `continue-on-error` from CI once confident.~~ **Done 2026-07-29** — all gates are now hard, including frontend ESLint, plus a new backend unit-test job.
 4. **Reconcile the two roadmap narratives.** `context.md`'s "Multi-Town Expansion Plan" (CivicEngage/Swagit towns 2–4) predates the Indianapolis/Hamilton County build-out and doesn't account for it. Decide: keep pursuing a literal 4th CivicEngage town, or treat Indianapolis (public safety) and Hamilton County (GIS) as the de facto expansion track and update the plan to match.
 5. **Build frontend pages for Indianapolis public-safety data.** `incidents`, `crashes`, `citations`, `use_of_force`, and `service_requests` are fully scraped and API-accessible but have zero UI — the biggest functionality-vs-visibility gap in the app right now.
 6. **Existing queued backlog items** (`SCRUM/Backlog/`, status `sprint`): CivicClerk per-agenda-item PDF text extraction (P3), MyCase party-name search (P3), multi-town CivicEngage scraper (P2, contingent on decision in #4 above).
-7. **Re-run the 6 fixed Indy scrapers for real and confirm rows land correctly.** This session verified the fetch + field-mapping pipeline live (no DB available in this environment) but never exercised `upsertRow()` against a real Postgres instance — run `npx ts-node run-scraper.ts` (or wait for the next scheduled cron) against a real `DATABASE_URL` and spot-check the `incidents`/`crashes`/`citations`/`use_of_force`/`service_requests`/`parcels` tables.
+7. **Re-run the 6 fixed Indy scrapers for real and confirm rows land correctly.** Field mapping is now pinned by `src/__tests__/arcgis.test.ts`, but that covers mapping only — `upsertRow()` still hasn't been exercised against a real Postgres instance — run `npx ts-node run-scraper.ts` (or wait for the next scheduled cron) against a real `DATABASE_URL` and spot-check the `incidents`/`crashes`/`citations`/`use_of_force`/`service_requests`/`parcels` tables.
+8. **Widen test coverage beyond the mapping layer.** `src/__tests__` covers ArcGIS field mapping, alert rule matching, and pagination clamping — all pure logic. There is still no coverage of the route handlers, the upsert paths, or the PDF/CSV parsers; the Postgres smoke test in CI only asserts that `/health` returns 200.
