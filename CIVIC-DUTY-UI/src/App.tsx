@@ -26,6 +26,11 @@ const Schools = lazy(() => import('./pages/Schools'));
 const Parks = lazy(() => import('./pages/Parks'));
 const Polling = lazy(() => import('./pages/Polling'));
 const TaxDistricts = lazy(() => import('./pages/TaxDistricts'));
+const Incidents = lazy(() => import('./pages/Incidents'));
+const Crashes = lazy(() => import('./pages/Crashes'));
+const Citations = lazy(() => import('./pages/Citations'));
+const UseOfForce = lazy(() => import('./pages/UseOfForce'));
+const ServiceRequests = lazy(() => import('./pages/ServiceRequests'));
 
 function PageFallback() {
   return (
@@ -101,6 +106,11 @@ function AppShell() {
             <Route path="/parks" element={<Parks />} />
             <Route path="/polling" element={<Polling />} />
             <Route path="/tax-districts" element={<TaxDistricts />} />
+            <Route path="/incidents" element={<Incidents />} />
+            <Route path="/crashes" element={<Crashes />} />
+            <Route path="/citations" element={<Citations />} />
+            <Route path="/use-of-force" element={<UseOfForce />} />
+            <Route path="/service-requests" element={<ServiceRequests />} />
           </Routes>
         </Suspense>
       </main>

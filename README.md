@@ -2,7 +2,7 @@
 
 A civic data aggregator covering **Fishers, Indianapolis, and Hamilton County, Indiana** — council votes, procurement bids, campaign finance, zoning changes, court records, public safety data, and county GIS layers (parcels, buildings, schools, parks, polling locations) in a single dashboard.
 
-> Originally scoped to Fishers only (see "Regions" below) — Indianapolis public-safety data and Hamilton County GIS layers were added later and aren't yet reflected in `SCRUM/06_Programs/civic-duty/context.md`'s "Multi-Town Expansion Plan." See [Roadmap](#roadmap--next-steps) at the bottom of this file.
+> Originally scoped to Fishers only (see "Regions" below) — Indianapolis public-safety data and Hamilton County GIS layers were added later. The expansion plan below reflects the actual Indy + HamCo build-out.
 
 ## Regions
 
@@ -95,8 +95,9 @@ CIVIC-DUTY/
         │   ├── Alerts.tsx          # Watchlist rules CRUD + triggered feed
         │   ├── Login.tsx           # Sign-in / register form
         │   └── Parcels.tsx, Buildings.tsx, Schools.tsx, Parks.tsx, Polling.tsx, TaxDistricts.tsx
-        │                          # Hamilton County GIS layers — no dedicated Indy public-safety pages yet
-        │                          # (incidents/crashes/citations/use_of_force have API routes but no UI pages)
+        │                          # Hamilton County GIS layers
+        │                          # Incidents, Crashes, Citations, Use of Force, Service Requests:
+        │                          #   API routes + frontend pages
         └── components/
             └── Shared.tsx          # ModuleBadge, StatusChip, DocumentList, AlertCard, NavBar
 ```
@@ -371,7 +372,7 @@ messages name tables, columns and constraints.
 | `GET` | `/api/dashboard/summary` | — | Counts + latest item per module |
 | `GET` | `/api/cities` | — | City metadata (display name, modules, live counts). Only `fishers` and `indy` are defined in `CITY_META` — Hamilton County (`hamco`) data has no city-level entry here since it's county-scoped |
 
-### Indianapolis & Hamilton County data (public read, no dedicated UI pages for most)
+### Indianapolis & Hamilton County Data (all have frontend pages)
 
 | Method | Path | Query params |
 |---|---|---|
@@ -379,7 +380,7 @@ messages name tables, columns and constraints.
 | `GET` | `/api/parcels` | `city`, `address`, `owner`, `land_use`, `zoning`, `lat`, `lng`, `radius_miles`, `limit`, `offset` |
 | `GET` | `/api/buildings`, `/api/schools`, `/api/parks`, `/api/polling-locations`, `/api/tax-districts` | `city` + resource-specific filters, `limit`, `offset` |
 
-All of the above also support `GET /:id`. None of these five public-safety resources (incidents/crashes/citations/use-of-force/service-requests) have a frontend page yet — API-only.
+All of the above also support `GET /:id`. All five public-safety resources have frontend pages at `/incidents`, `/crashes`, `/citations`, `/use-of-force`, and `/service-requests`.
 
 ### Alerts (Bearer JWT required)
 | Method | Path | Notes |
@@ -452,13 +453,10 @@ See [DATA_SOURCES.md](DATA_SOURCES.md) for full API shapes, field mappings, volu
 
 ## Roadmap / Next steps
 
-Cross-project roadmap lives in `SCRUM/06_Programs/civic-duty/context.md`; in-repo task detail lives in `SCRUM/Backlog/*.md` and `TODO.md`. As of 2026-07-17 both are stale relative to the code (they don't mention Indianapolis or Hamilton County at all) — `context.md` has been updated alongside this README. Prioritized next steps:
+Cross-project roadmap lives in `SCRUM/06_Programs/civic-duty/context.md`; in-repo task detail lives in `SCRUM/Backlog/*.md` and `TODO.md`. Prioritized next steps:
 
-1. ~~Verify the `indy_incidents.ts` ArcGIS URL.~~ **Done 2026-07-17** — turned out all 6 Indianapolis ArcGIS scrapers pointed at a dead domain, not just incidents. Real endpoints found and all 6 rewritten + live-verified against real data; see "Known issues" above for specifics (2 are non-spatial with no address/lat/lng by design, parcels needed a client-side centroid fallback). Also fixed a latent base-class bug (`arcgis.ts`) where function-mapped fields never made it into the ArcGIS request, silently starving date columns across multiple scrapers including `hamco_parcels.ts`.
-2. **Decide the fate of `campaign_expenditures`.** Table exists, nothing writes to it. Either finish `SCRUM/Backlog/fcpa_expenditure_ingestion.md` (wire up scraper + `/api/campaign/expenditures` route) or drop the table.
-3. ~~Remove `continue-on-error` from CI once confident.~~ **Done 2026-07-29** — all gates are now hard, including frontend ESLint, plus a new backend unit-test job.
-4. **Reconcile the two roadmap narratives.** `context.md`'s "Multi-Town Expansion Plan" (CivicEngage/Swagit towns 2–4) predates the Indianapolis/Hamilton County build-out and doesn't account for it. Decide: keep pursuing a literal 4th CivicEngage town, or treat Indianapolis (public safety) and Hamilton County (GIS) as the de facto expansion track and update the plan to match.
-5. **Build frontend pages for Indianapolis public-safety data.** `incidents`, `crashes`, `citations`, `use_of_force`, and `service_requests` are fully scraped and API-accessible but have zero UI — the biggest functionality-vs-visibility gap in the app right now.
-6. **Existing queued backlog items** (`SCRUM/Backlog/`, status `sprint`): CivicClerk per-agenda-item PDF text extraction (P3), MyCase party-name search (P3), multi-town CivicEngage scraper (P2, contingent on decision in #4 above).
-7. **Re-run the 6 fixed Indy scrapers for real and confirm rows land correctly.** Field mapping is now pinned by `src/__tests__/arcgis.test.ts`, but that covers mapping only — `upsertRow()` still hasn't been exercised against a real Postgres instance — run `npx ts-node run-scraper.ts` (or wait for the next scheduled cron) against a real `DATABASE_URL` and spot-check the `incidents`/`crashes`/`citations`/`use_of_force`/`service_requests`/`parcels` tables.
-8. **Widen test coverage beyond the mapping layer.** `src/__tests__` covers ArcGIS field mapping, alert rule matching, and pagination clamping — all pure logic. There is still no coverage of the route handlers, the upsert paths, or the PDF/CSV parsers; the Postgres smoke test in CI only asserts that `/health` returns 200.
+1. **Decide the fate of `campaign_expenditures`.** Table exists, nothing writes to it. Either finish `SCRUM/Backlog/fcpa_expenditure_ingestion.md` (wire up scraper + `/api/campaign/expenditures` route) or drop the table.
+2. **Run the 6 Indy scrapers against a real Postgres instance** and confirm rows land correctly. Field mapping is now pinned by `src/__tests__/arcgis.test.ts`, but the upsert path hasn't been exercised against a real DB outside of CI — run `npx ts-node run-scraper.ts <module>` (or wait for the next scheduled cron) against a real `DATABASE_URL` and spot-check the tables.
+3. **Widen test coverage beyond the mapping layer.** `src/__tests__` covers ArcGIS field mapping, alert rule matching, and pagination clamping — all pure logic. There is still no coverage of the route handlers, the upsert paths, or the PDF/CSV parsers; the Postgres smoke test in CI only asserts that `/health` returns 200.
+4. **Build frontend pages in additional cities.** The Fishers and Indianapolis page sets are complete. A new city (e.g. Carmel via CivicEngage) would need a new scraper module (`src/scrapers/carmel_council.ts`), API routes, and a UI page set following the existing patterns. See `SCRUM/Backlog/multitown_civicengage_scraper.md`.
+5. **Backlog items** (SCRUM/Backlog, status `sprint`): CivicClerk per-agenda-item PDF text extraction (P3), MyCase party-name search (P3).

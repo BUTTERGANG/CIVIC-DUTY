@@ -53,3 +53,52 @@ describe('clampOffset', () => {
     assert.equal(clampOffset('5.7'), 5);
   });
 });
+
+describe('sendError', () => {
+  test('returns 500 with a ref and no leaked error message', () => {
+    let statusCode = 0;
+    let jsonBody: any = null;
+    const mockRes = {
+      status: (code: number) => {
+        statusCode = code;
+        return mockRes;
+      },
+      json: (body: any) => {
+        jsonBody = body;
+      },
+    } as any;
+
+    const { sendError } = require('../lib/http');
+    sendError(mockRes, new Error('Sensitive SQL detail: users.password_hash wrong'), 'TestContext');
+
+    assert.equal(statusCode, 500);
+    assert.equal(jsonBody.error, 'Internal server error');
+    assert.ok(typeof jsonBody.ref === 'string' && jsonBody.ref.length === 8, 'ref should be an 8-char hex string');
+  });
+
+  test('handles a non-Error thrown value', () => {
+    let jsonBody: any = null;
+    const mockRes = {
+      status: () => mockRes,
+      json: (body: any) => { jsonBody = body; },
+    } as any;
+
+    const { sendError } = require('../lib/http');
+    sendError(mockRes, 'string error', 'TestContext');
+
+    assert.equal(jsonBody.error, 'Internal server error');
+    assert.ok(typeof jsonBody.ref === 'string');
+  });
+
+  test('handles null/undefined thrown value', () => {
+    let jsonBody: any = null;
+    const mockRes = {
+      status: () => mockRes,
+      json: (body: any) => { jsonBody = body; },
+    } as any;
+
+    const { sendError } = require('../lib/http');
+    sendError(mockRes, null, 'TestContext');
+    assert.equal(jsonBody.error, 'Internal server error');
+  });
+});

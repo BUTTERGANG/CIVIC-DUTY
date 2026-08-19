@@ -41,11 +41,11 @@ const FISHERS_STAT_META = [
 
 const INDY_STAT_META = [
   { key: 'council',        label: 'Council Votes',      color: '#10d98a', link: '/council',  bg: 'from-emerald-500/[0.08] to-transparent', border: 'hover:border-emerald-500/30' },
-  { key: 'incidents',      label: 'Incidents',          color: '#f97316', link: '/council',  bg: 'from-orange-500/[0.08] to-transparent',  border: 'hover:border-orange-500/30' },
-  { key: 'crashes',        label: 'Traffic Crashes',    color: '#ef4444', link: '/council',  bg: 'from-red-500/[0.08] to-transparent',    border: 'hover:border-red-500/30' },
-  { key: 'citations',      label: 'Citations',          color: '#eab308', link: '/council',  bg: 'from-yellow-500/[0.08] to-transparent',  border: 'hover:border-yellow-500/30' },
-  { key: 'useOfForce',     label: 'Use of Force',       color: '#ec4899', link: '/council',  bg: 'from-pink-500/[0.08] to-transparent',   border: 'hover:border-pink-500/30' },
-  { key: 'serviceRequests', label: '311 Requests',      color: '#06b6d4', link: '/council',  bg: 'from-cyan-500/[0.08] to-transparent',   border: 'hover:border-cyan-500/30' },
+  { key: 'incidents',      label: 'Incidents',          color: '#f97316', link: '/incidents',  bg: 'from-orange-500/[0.08] to-transparent',  border: 'hover:border-orange-500/30' },
+  { key: 'crashes',        label: 'Traffic Crashes',    color: '#ef4444', link: '/crashes',  bg: 'from-red-500/[0.08] to-transparent',    border: 'hover:border-red-500/30' },
+  { key: 'citations',      label: 'Citations',          color: '#eab308', link: '/citations',  bg: 'from-yellow-500/[0.08] to-transparent',  border: 'hover:border-yellow-500/30' },
+  { key: 'useOfForce',     label: 'Use of Force',       color: '#ec4899', link: '/use-of-force',  bg: 'from-pink-500/[0.08] to-transparent',   border: 'hover:border-pink-500/30' },
+  { key: 'serviceRequests', label: '311 Requests',      color: '#06b6d4', link: '/service-requests',  bg: 'from-cyan-500/[0.08] to-transparent',   border: 'hover:border-cyan-500/30' },
 ] as const;
 
 export default function Dashboard() {

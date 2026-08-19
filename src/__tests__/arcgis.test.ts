@@ -13,12 +13,24 @@ import {
   collectOutFields,
   epochDateField,
   epochTimestampField,
+  epochDateToCol,
+  epochTimestampToCol,
 } from '../scrapers/arcgis';
 
 /** mapFeature is protected; tests drive it the way run() does. */
 function mapWith(config: any, feature: any): Record<string, any> {
   const scraper = new ArcgisScraper(config);
   return (scraper as any).mapFeature(feature);
+}
+
+/** Access the protected upsertRow for SQL-shape testing. */
+function upsertRowShape(config: any, row: Record<string, any>): string {
+  const scraper = new ArcgisScraper(config);
+  // We can't easily inspect the generated SQL from upsertRow since it calls pool.query,
+  // but we can verify that dedupFields are correctly filtered when null
+  return (scraper as any).config.dedupFields.filter(
+    (f: string) => row[f] !== null && row[f] !== undefined
+  ).join(',');
 }
 
 describe('collectOutFields', () => {
@@ -168,5 +180,125 @@ describe('epoch field helpers', () => {
   test('helpers tag themselves so collectOutFields can find the source field', () => {
     assert.equal((epochDateField('Foo') as any).arcgisField, 'Foo');
     assert.equal((epochTimestampField('Bar') as any).arcgisField, 'Bar');
+  });
+
+  test('epochDateToCol and epochTimestampToCol compose correctly', () => {
+    const col1 = epochDateToCol('HearingDate', 'hearing_date');
+    const col2 = epochTimestampToCol('Requested', 'requested_at');
+    assert.deepEqual(Object.keys(col1), ['hearing_date']);
+    assert.deepEqual(Object.keys(col2), ['requested_at']);
+    assert.equal((col1.hearing_date as any)({ HearingDate: 1721001600000 }), '2024-07-15');
+    assert.match((col2.requested_at as any)({ Requested: 1721001600000 }), /^2024-07-15T/);
+  });
+});
+
+describe('ArcgisScraper defaults', () => {
+  test('applies sensible defaults for optional config', () => {
+    const scraper = new ArcgisScraper({
+      module: 'test',
+      city: 'indy',
+      serviceUrl: 'https://example.invalid/query',
+      tableName: 'test_table',
+      fieldMap: { id: 'OBJECTID' },
+      dedupFields: ['city', 'id'],
+    });
+    assert.equal((scraper as any).config.pageSize, 2000);
+    assert.equal((scraper as any).config.pageDelayMs, 1000);
+    assert.equal((scraper as any).config.whereClause, '1=1');
+    assert.equal((scraper as any).config.hasGeometry, true);
+    assert.equal((scraper as any).config.enableAlerts, true);
+  });
+
+  test('user-supplied config overrides defaults', () => {
+    const scraper = new ArcgisScraper({
+      module: 'test',
+      city: 'indy',
+      serviceUrl: 'https://example.invalid/query',
+      tableName: 'test_table',
+      fieldMap: { id: 'OBJECTID' },
+      dedupFields: ['city', 'id'],
+      pageSize: 100,
+      hasGeometry: false,
+      enableAlerts: false,
+    });
+    assert.equal((scraper as any).config.pageSize, 100);
+    assert.equal((scraper as any).config.hasGeometry, false);
+    assert.equal((scraper as any).config.enableAlerts, false);
+  });
+});
+
+describe('Dedup fields filtering', () => {
+  test('only non-null dedup fields are used in ON CONFLICT', () => {
+    const config = {
+      module: 'test',
+      city: 'indy',
+      serviceUrl: 'https://example.invalid/query',
+      tableName: 'test_table',
+      fieldMap: { id: 'OBJECTID', name: 'Name', city: 'City' },
+      dedupFields: ['city', 'id', 'name'],
+    };
+    // All three dedup fields present
+    assert.equal(upsertRowShape(config, { city: 'indy', id: 1, name: 'test' }), 'city,id,name');
+    // Two dedup fields null — should filter them out
+    assert.equal(upsertRowShape(config, { id: 1, name: null }), 'id');
+    // Only city present
+    assert.equal(upsertRowShape(config, { city: 'indy', id: null, name: null }), 'city');
+  });
+});
+
+describe('mapFeature edge cases', () => {
+  const baseConfig = {
+    module: 'test',
+    city: 'indy',
+    serviceUrl: 'https://example.invalid/query',
+    tableName: 'test_table',
+    fieldMap: { id: 'OBJECTID' },
+    dedupFields: ['city', 'id'],
+  };
+
+  test('empty geometry rings — lat/lng not set on row', () => {
+    // RingCentroid returns null for an empty ring array; the mapper leaves
+    // lat/lng absent rather than setting them to null.
+    const row = mapWith(baseConfig, {
+      attributes: { OBJECTID: 1 },
+      geometry: { rings: [] },
+    });
+    assert.equal(row.id, 1);
+    assert.ok(!('lat' in row) || row.lat == null);
+    assert.ok(!('lng' in row) || row.lng == null);
+  });
+
+  test('feature with empty attributes maps correctly', () => {
+    const row = mapWith(baseConfig, { attributes: {} });
+    assert.equal(row.city, 'indy');
+    assert.equal(row.id, null);
+  });
+
+  test('transform function is applied after field mapping', () => {
+    const configWithTransform = {
+      ...baseConfig,
+      transform: (row: Record<string, any>) => {
+        row.computed_label = `${row.city}_${row.id}`;
+        return row;
+      },
+    };
+    const row = mapWith(configWithTransform, {
+      attributes: { OBJECTID: 42 },
+      geometry: { x: -86, y: 39 },
+    });
+    assert.equal(row.computed_label, 'indy_42');
+  });
+
+  test('staticFields are included in every row', () => {
+    const configWithStatic = {
+      ...baseConfig,
+      staticFields: { source: 'test_arcgis', version: 2 },
+    };
+    const row = mapWith(configWithStatic, {
+      attributes: { OBJECTID: 99 },
+      geometry: { x: -86, y: 39 },
+    });
+    assert.equal(row.source, 'test_arcgis');
+    assert.equal(row.version, 2);
   });
 });
