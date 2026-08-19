@@ -18,6 +18,9 @@ import { HamCoTaxDistrictsScraper } from './scrapers/hamco_tax_districts';
 import { HamCoSchoolsScraper } from './scrapers/hamco_schools';
 import { HamCoParksScraper } from './scrapers/hamco_parks';
 import { HamCoPollingScraper } from './scrapers/hamco_polling';
+import { IndyCfsScraper } from './scrapers/indy_cfs';
+import { IndyVisionZeroScraper } from './scrapers/indy_visionzero';
+import { IndyHistoricSitesScraper, IndyDaycareScraper, IndyPlacesOfWorshipScraper } from './scrapers/indy_community';
 
 async function logScrape(
   source: string,
@@ -52,6 +55,8 @@ export function setupScheduler() {
     useOfForce:      new IndyUseOfForceScraper(),
     serviceRequests: new IndyServiceRequestsScraper(),
     parcels:         new IndyParcelsScraper(),
+    cfs:             new IndyCfsScraper(),
+    visionZero:      new IndyVisionZeroScraper(),
   };
 
   const hamcoScrapers = {
@@ -97,6 +102,8 @@ export function setupScheduler() {
   scheduleWithLogging('0 14 * * *', 'indy_use_of_force',          () => indyScrapers.useOfForce.run());
   scheduleWithLogging('0 15 * * *', 'indy_service_requests',      () => indyScrapers.serviceRequests.run());
   scheduleWithLogging('0 2 * * 0',  'indy_parcels',               () => indyScrapers.parcels.run());
+  scheduleWithLogging('0 16 * * *', 'indy_cfs',                   () => indyScrapers.cfs.run());
+  scheduleWithLogging('0 17 * * *', 'indy_visionzero',            () => indyScrapers.visionZero.run());
 
   // Hamilton County schedule
   scheduleWithLogging('0 3 * * 0', 'hamco_parcels',               () => hamcoScrapers.parcels.run());
@@ -106,8 +113,19 @@ export function setupScheduler() {
   scheduleWithLogging('0 5 * * 3', 'hamco_parks',                 () => hamcoScrapers.parks.run());
   scheduleWithLogging('0 5 * * 4', 'hamco_polling',               () => hamcoScrapers.polling.run());
 
+  // Community directory (weekly, low churn)
+  const communityDirScrapers = {
+    historicSites: new IndyHistoricSitesScraper(),
+    daycares:      new IndyDaycareScraper(),
+    worship:       new IndyPlacesOfWorshipScraper(),
+  };
+  scheduleWithLogging('0 6 * * 0', 'indy_historic_sites',         () => communityDirScrapers.historicSites.run());
+  scheduleWithLogging('0 7 * * 0', 'indy_daycares',               () => communityDirScrapers.daycares.run());
+  scheduleWithLogging('0 8 * * 0', 'indy_places_of_worship',      () => communityDirScrapers.worship.run());
+
   console.log('[Scheduler] Cron jobs configured successfully.');
   console.log(`[Scheduler] Fishers: ${Object.keys(fishersScrapers).length} scrapers`);
   console.log(`[Scheduler] Indianapolis: ${Object.keys(indyScrapers).length} scrapers`);
   console.log(`[Scheduler] Hamilton County: ${Object.keys(hamcoScrapers).length} scrapers`);
+  console.log(`[Scheduler] Community Directory: ${Object.keys(communityDirScrapers).length} scrapers`);
 }

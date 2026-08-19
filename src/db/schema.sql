@@ -440,3 +440,122 @@ ALTER TABLE zoning_changes ADD COLUMN IF NOT EXISTS contact_name TEXT;
 ALTER TABLE zoning_changes ADD COLUMN IF NOT EXISTS contact_email TEXT;
 ALTER TABLE zoning_changes ADD COLUMN IF NOT EXISTS est_completion TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_zoning_devproject ON zoning_changes (project_name) WHERE source = 'dev_project' AND project_name IS NOT NULL;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- EXPANDED DATA SOURCES (Wave 1 — August 2026)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Calls for Service (IMPD CAD — 5.1M records from gis.indy.gov)
+CREATE TABLE IF NOT EXISTS calls_for_service (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'indy',
+    cad TEXT,                                  -- CAD incident number
+    call_source TEXT,                          -- Citizen, Officer, Auto
+    incident_type TEXT NOT NULL,
+    primary_dispatch TEXT,
+    address TEXT,
+    district TEXT,
+    council_district TEXT,
+    received_at TIMESTAMP WITH TIME ZONE,
+    dispatched_at TIMESTAMP WITH TIME ZONE,
+    arrived_at TIMESTAMP WITH TIME ZONE,
+    cleared_at TIMESTAMP WITH TIME ZONE,
+    lat DECIMAL(10, 8),
+    lng DECIMAL(11, 8),
+    source TEXT DEFAULT 'indy_cfs',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(city, cad)
+);
+
+-- VisionZero Crashes (DPW traffic safety — 249K records)
+CREATE TABLE IF NOT EXISTS visionzero_crashes (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'indy',
+    crash_id TEXT,                             -- external ID
+    vehicles INTEGER,
+    people_involved INTEGER,
+    pedestrians INTEGER,
+    bicycle INTEGER,
+    injuries INTEGER DEFAULT 0,
+    fatalities INTEGER DEFAULT 0,
+    hit_and_run TEXT,
+    roadway_class TEXT,
+    manner_of_collision TEXT,
+    crash_type TEXT,
+    severity TEXT,
+    crash_status TEXT,
+    address TEXT,
+    district TEXT,
+    council_district TEXT,
+    occurred_at TIMESTAMP WITH TIME ZONE,
+    lat DECIMAL(10, 8),
+    lng DECIMAL(11, 8),
+    source TEXT DEFAULT 'indy_visionzero',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(city, crash_id)
+);
+
+-- Historic Sites (Accela AGIS — 2,103 records)
+CREATE TABLE IF NOT EXISTS historic_sites (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'indy',
+    name TEXT NOT NULL,
+    address TEXT,
+    year_built INTEGER,
+    district TEXT,
+    rating TEXT,
+    notes TEXT,
+    external_id TEXT,
+    lat DECIMAL(10, 8),
+    lng DECIMAL(11, 8),
+    source TEXT DEFAULT 'indy_accola',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(city, name, address)
+);
+
+-- Licensed Daycares (Accela AGIS — 195 records)
+CREATE TABLE IF NOT EXISTS daycares (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'indy',
+    name TEXT NOT NULL,
+    address TEXT,
+    license_number TEXT,
+    provider_type TEXT,
+    lat DECIMAL(10, 8),
+    lng DECIMAL(11, 8),
+    source TEXT DEFAULT 'indy_accola',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(city, name, address)
+);
+
+-- Places of Worship (Accela AGIS — 1,072 records)
+CREATE TABLE IF NOT EXISTS places_of_worship (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'indy',
+    name TEXT NOT NULL,
+    place_type TEXT,
+    address TEXT,
+    lat DECIMAL(10, 8),
+    lng DECIMAL(11, 8),
+    source TEXT DEFAULT 'indy_accola',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(city, name, address)
+);
+
+-- Indexes for expanded data sources
+CREATE INDEX IF NOT EXISTS idx_cfs_city ON calls_for_service (city);
+CREATE INDEX IF NOT EXISTS idx_cfs_type ON calls_for_service (city, incident_type);
+CREATE INDEX IF NOT EXISTS idx_cfs_district ON calls_for_service (city, district);
+CREATE INDEX IF NOT EXISTS idx_cfs_received ON calls_for_service (received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cfs_lat_lng ON calls_for_service (lat, lng);
+
+CREATE INDEX IF NOT EXISTS idx_vz_city ON visionzero_crashes (city);
+CREATE INDEX IF NOT EXISTS idx_vz_type ON visionzero_crashes (city, crash_type);
+CREATE INDEX IF NOT EXISTS idx_vz_severity ON visionzero_crashes (city, severity);
+CREATE INDEX IF NOT EXISTS idx_vz_occurred ON visionzero_crashes (occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_hs_city ON historic_sites (city);
+CREATE INDEX IF NOT EXISTS idx_hs_district ON historic_sites (city, district);
+
+CREATE INDEX IF NOT EXISTS idx_daycares_city ON daycares (city);
+CREATE INDEX IF NOT EXISTS idx_worship_city ON places_of_worship (city);

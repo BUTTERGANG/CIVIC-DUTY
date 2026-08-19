@@ -681,3 +681,130 @@ export async function fetchTaxDistricts(params: Record<string, string> = {}): Pr
   const qs = new URLSearchParams(merged).toString();
   return get<TaxDistrict[]>(`/tax-districts?${qs}`);
 }
+
+// --- Calls for Service (IMPD CAD) ---
+
+export interface CallForService {
+  id: number;
+  city: string;
+  cad: string | null;
+  call_source: string | null;
+  incident_type: string;
+  primary_dispatch: string | null;
+  address: string | null;
+  district: string | null;
+  council_district: string | null;
+  received_at: string | null;
+  dispatched_at: string | null;
+  arrived_at: string | null;
+  cleared_at: string | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchCallsForService(params: Record<string, string> = {}): Promise<CallForService[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<CallForService[]>(`/cfs?${qs}`);
+}
+
+// --- VisionZero Crashes (DPW traffic safety) ---
+
+export interface VisionZeroCrash {
+  id: number;
+  city: string;
+  crash_id: string;
+  vehicles: number | null;
+  people_involved: number | null;
+  pedestrians: number | null;
+  bicycle: number | null;
+  injuries: number;
+  fatalities: number;
+  hit_and_run: string | null;
+  roadway_class: string | null;
+  manner_of_collision: string | null;
+  crash_type: string | null;
+  severity: string | null;
+  crash_status: string | null;
+  address: string | null;
+  district: string | null;
+  council_district: string | null;
+  occurred_at: string | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchVisionZeroCrashes(params: Record<string, string> = {}): Promise<VisionZeroCrash[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<VisionZeroCrash[]>(`/visionzero?${qs}`);
+}
+
+// --- Historic Sites ---
+
+export interface HistoricSite {
+  id: number;
+  city: string;
+  name: string;
+  address: string | null;
+  year_built: number | null;
+  district: string | null;
+  rating: string | null;
+  notes: string | null;
+  external_id: string | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchHistoricSites(params: Record<string, string> = {}): Promise<HistoricSite[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<HistoricSite[]>(`/historic-sites?${qs}`);
+}
+
+// --- Daycares ---
+
+export interface Daycare {
+  id: number;
+  city: string;
+  name: string;
+  address: string | null;
+  license_number: string | null;
+  provider_type: string | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchDaycares(params: Record<string, string> = {}): Promise<Daycare[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<Daycare[]>(`/daycares?${qs}`);
+}
+
+// --- Places of Worship ---
+
+export interface PlaceOfWorship {
+  id: number;
+  city: string;
+  name: string;
+  place_type: string | null;
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchPlacesOfWorship(params: Record<string, string> = {}): Promise<PlaceOfWorship[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<PlaceOfWorship[]>(`/places-of-worship?${qs}`);
+}

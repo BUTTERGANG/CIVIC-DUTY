@@ -1,9 +1,9 @@
 # Sprint View — CIVIC-DUTY
 
-> **Sprint:** N
-> **Sprint Name:** [name]
-> **Start:** YYYY-MM-DD | **End:** YYYY-MM-DD
-> **Goal:** [one sentence sprint goal for this repo]
+> **Sprint:** August 2026 W3
+> **Sprint Name:** Data Source Expansion — Wave 1
+> **Start:** 2026-08-19 | **End:** 2026-08-26
+> **Goal:** Add 3-4 new ArcGIS-derived public-safety and community datasets from the gis.indy.gov catalog
 
 ---
 
@@ -11,7 +11,8 @@
 
 | Task | Agent | Priority | Est. |
 |------|-------|----------|------|
-| —    | —     | —        | —    |
+| IMPD Calls for Service (CFS_Public) | hermes | P1 | large |
+| — | — | — | — |
 
 ---
 
@@ -19,7 +20,9 @@
 
 | Task File | Priority | Estimate | Status |
 |-----------|----------|----------|--------|
-| —         | —        | —        | sprint |
+| `SCRUM/Backlog/indy_visionzero_crashes.md` | P1 | medium | sprint |
+| `SCRUM/Backlog/indy_historic_sites.md` | P2 | small | sprint |
+| `SCRUM/Backlog/indy_community_layers.md` | P2 | small | sprint |
 
 ---
 
@@ -27,7 +30,10 @@
 
 | Task | Points | Completed |
 |------|--------|-----------|
-| —    | —      | —         |
+| Indy public-safety UI pages (5 pages) | — | 2026-08-19 |
+| Test coverage widen (+11 tests) | — | 2026-08-19 |
+| Roadmap reconciliation | — | 2026-08-19 |
+| Data source expansion plan (context.md) | — | 2026-08-19 |
 
 ---
 
@@ -35,4 +41,4 @@
 
 | Task | Blocked Since | Reason |
 |------|---------------|--------|
-| —    | —             | —      |
+| — | — | — |

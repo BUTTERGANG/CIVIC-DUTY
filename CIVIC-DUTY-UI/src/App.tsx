@@ -31,6 +31,11 @@ const Crashes = lazy(() => import('./pages/Crashes'));
 const Citations = lazy(() => import('./pages/Citations'));
 const UseOfForce = lazy(() => import('./pages/UseOfForce'));
 const ServiceRequests = lazy(() => import('./pages/ServiceRequests'));
+const CallsForService = lazy(() => import('./pages/CallsForService'));
+const VisionZero = lazy(() => import('./pages/VisionZero'));
+const HistoricSites = lazy(() => import('./pages/HistoricSites'));
+const Daycares = lazy(() => import('./pages/Daycares'));
+const PlacesOfWorship = lazy(() => import('./pages/PlacesOfWorship'));
 
 function PageFallback() {
   return (
@@ -111,6 +116,11 @@ function AppShell() {
             <Route path="/citations" element={<Citations />} />
             <Route path="/use-of-force" element={<UseOfForce />} />
             <Route path="/service-requests" element={<ServiceRequests />} />
+            <Route path="/cfs" element={<CallsForService />} />
+            <Route path="/visionzero" element={<VisionZero />} />
+            <Route path="/historic-sites" element={<HistoricSites />} />
+            <Route path="/daycares" element={<Daycares />} />
+            <Route path="/places-of-worship" element={<PlacesOfWorship />} />
           </Routes>
         </Suspense>
       </main>

@@ -9,6 +9,9 @@ import { HamCoTaxDistrictsScraper } from './src/scrapers/hamco_tax_districts';
 import { HamCoSchoolsScraper } from './src/scrapers/hamco_schools';
 import { HamCoParksScraper } from './src/scrapers/hamco_parks';
 import { HamCoPollingScraper } from './src/scrapers/hamco_polling';
+import { IndyCfsScraper } from './src/scrapers/indy_cfs';
+import { IndyVisionZeroScraper } from './src/scrapers/indy_visionzero';
+import { IndyHistoricSitesScraper, IndyDaycareScraper, IndyPlacesOfWorshipScraper } from './src/scrapers/indy_community';
 
 const target = process.argv[2] ?? 'council';
 
@@ -23,6 +26,11 @@ const scrapers: Record<string, { run(): Promise<void> }> = {
   hamco_schools:    new HamCoSchoolsScraper(),
   hamco_parks:      new HamCoParksScraper(),
   hamco_polling:    new HamCoPollingScraper(),
+  cfs:              new IndyCfsScraper(),
+  visionzero:       new IndyVisionZeroScraper(),
+  historic_sites:   new IndyHistoricSitesScraper(),
+  daycares:         new IndyDaycareScraper(),
+  worship:          new IndyPlacesOfWorshipScraper(),
 };
 
 const scraper = scrapers[target];

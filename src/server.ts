@@ -28,6 +28,11 @@ import schoolsRouter from './routes/schools';
 import parksRouter from './routes/parks';
 import pollingRouter from './routes/polling';
 import taxDistrictsRouter from './routes/tax_districts';
+import cfsRouter from './routes/cfs';
+import visionZeroRouter from './routes/visionzero';
+import historicSitesRouter from './routes/historic_sites';
+import daycaresRouter from './routes/daycares';
+import placesOfWorshipRouter from './routes/places_of_worship';
 
 const app = express();
 
@@ -64,6 +69,11 @@ app.use('/api/schools', schoolsRouter);
 app.use('/api/parks', parksRouter);
 app.use('/api/polling-locations', pollingRouter);
 app.use('/api/tax-districts', taxDistrictsRouter);
+app.use('/api/cfs', cfsRouter);
+app.use('/api/visionzero', visionZeroRouter);
+app.use('/api/historic-sites', historicSitesRouter);
+app.use('/api/daycares', daycaresRouter);
+app.use('/api/places-of-worship', placesOfWorshipRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });

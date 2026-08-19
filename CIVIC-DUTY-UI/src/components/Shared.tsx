@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, Map, TrendingUp, LogOut, Menu, X, ChevronDown, Home, Building2, GraduationCap, Trees, Vote, Landmark as TaxIcon, Shield, Car, FileText as CitationIcon, AlertTriangle, Wrench } from 'lucide-react';
+import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, Map, TrendingUp, LogOut, Menu, X, ChevronDown, Home, Building2, GraduationCap, Trees, Vote, Landmark as TaxIcon, Shield, Car, FileText as CitationIcon, AlertTriangle, Wrench, Phone, AlertTriangle as VzIcon, Church, Baby } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useState, useEffect, useRef } from 'react';
@@ -250,6 +250,11 @@ export const NavBar = ({ unreadCount, user, onLogout }: {
     { to: '/citations', icon: <CitationIcon size={16} />, label: 'Citations' },
     { to: '/use-of-force', icon: <AlertTriangle size={16} />, label: 'Use of Force' },
     { to: '/service-requests', icon: <Wrench size={16} />, label: '311 Requests' },
+    { to: '/cfs', icon: <Phone size={16} />, label: 'CFS' },
+    { to: '/visionzero', icon: <VzIcon size={16} />, label: 'VisionZero' },
+    { to: '/historic-sites', icon: <Building2 size={16} />, label: 'Historic Sites' },
+    { to: '/daycares', icon: <Baby size={16} />, label: 'Daycares' },
+    { to: '/places-of-worship', icon: <Church size={16} />, label: 'Worship' },
   ];
 
   return (
