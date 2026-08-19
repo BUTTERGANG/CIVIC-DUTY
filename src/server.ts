@@ -33,6 +33,9 @@ import visionZeroRouter from './routes/visionzero';
 import historicSitesRouter from './routes/historic_sites';
 import daycaresRouter from './routes/daycares';
 import placesOfWorshipRouter from './routes/places_of_worship';
+import parcelOwnersRouter from './routes/parcel_owners';
+import propertyAssessmentsRouter from './routes/property_assessments';
+import zoningVariancesRouter from './routes/zoning_variances';
 
 const app = express();
 
@@ -74,6 +77,9 @@ app.use('/api/visionzero', visionZeroRouter);
 app.use('/api/historic-sites', historicSitesRouter);
 app.use('/api/daycares', daycaresRouter);
 app.use('/api/places-of-worship', placesOfWorshipRouter);
+app.use('/api/parcel-owners', parcelOwnersRouter);
+app.use('/api/property-assessments', propertyAssessmentsRouter);
+app.use('/api/zoning-variances', zoningVariancesRouter);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });

@@ -808,3 +808,76 @@ export async function fetchPlacesOfWorship(params: Record<string, string> = {}):
   const qs = new URLSearchParams(merged).toString();
   return get<PlaceOfWorship[]>(`/places-of-worship?${qs}`);
 }
+
+// --- Parcel Owners ---
+
+export interface ParcelOwner {
+  id: number;
+  city: string;
+  state_parcel_number: string | null;
+  parcel_i: number | null;
+  owner_name: string | null;
+  property_class: string | null;
+  property_sub_class_description: string | null;
+  township_name: string | null;
+  owner_address: string | null;
+  owner_address2: string | null;
+  owner_city: string | null;
+  owner_state: string | null;
+  owner_zip: string | null;
+  land_total: number | null;
+  improvement_total: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchParcelOwners(params: Record<string, string> = {}): Promise<ParcelOwner[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<ParcelOwner[]>(`/parcel-owners?${qs}`);
+}
+
+// --- Property Assessments ---
+
+export interface PropertyAssessment {
+  id: number;
+  city: string;
+  parcel_tag: number | null;
+  improved_value: string | null;
+  land_value: string | null;
+  legal_desc: string | null;
+  parcel_number: string | null;
+  state_pin: string | null;
+  address: string | null;
+  owner_name: string | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchPropertyAssessments(params: Record<string, string> = {}): Promise<PropertyAssessment[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<PropertyAssessment[]>(`/property-assessments?${qs}`);
+}
+
+// --- Zoning Variances ---
+
+export interface ZoningVariance {
+  id: number;
+  city: string;
+  case_number: string;
+  recommendation: string | null;
+  status: string | null;
+  decision_date: string | null;
+  planner: string | null;
+  lat: number | null;
+  lng: number | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchZoningVariances(params: Record<string, string> = {}): Promise<ZoningVariance[]> {
+  const merged = cityParam(params);
+  const qs = new URLSearchParams(merged).toString();
+  return get<ZoningVariance[]>(`/zoning-variances?${qs}`);
+}

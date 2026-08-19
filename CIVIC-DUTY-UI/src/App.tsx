@@ -36,6 +36,9 @@ const VisionZero = lazy(() => import('./pages/VisionZero'));
 const HistoricSites = lazy(() => import('./pages/HistoricSites'));
 const Daycares = lazy(() => import('./pages/Daycares'));
 const PlacesOfWorship = lazy(() => import('./pages/PlacesOfWorship'));
+const ParcelOwners = lazy(() => import('./pages/ParcelOwners'));
+const PropertyAssessments = lazy(() => import('./pages/PropertyAssessments'));
+const ZoningVariances = lazy(() => import('./pages/ZoningVariances'));
 
 function PageFallback() {
   return (
@@ -121,6 +124,9 @@ function AppShell() {
             <Route path="/historic-sites" element={<HistoricSites />} />
             <Route path="/daycares" element={<Daycares />} />
             <Route path="/places-of-worship" element={<PlacesOfWorship />} />
+            <Route path="/parcel-owners" element={<ParcelOwners />} />
+            <Route path="/property-assessments" element={<PropertyAssessments />} />
+            <Route path="/zoning-variances" element={<ZoningVariances />} />
           </Routes>
         </Suspense>
       </main>

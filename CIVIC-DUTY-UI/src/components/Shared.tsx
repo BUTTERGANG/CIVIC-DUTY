@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, Map, TrendingUp, LogOut, Menu, X, ChevronDown, Home, Building2, GraduationCap, Trees, Vote, Landmark as TaxIcon, Shield, Car, FileText as CitationIcon, AlertTriangle, Wrench, Phone, AlertTriangle as VzIcon, Church, Baby } from 'lucide-react';
+import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, Map, TrendingUp, LogOut, Menu, X, ChevronDown, Home, Building2, GraduationCap, Trees, Vote, Landmark as TaxIcon, Shield, Car, FileText as CitationIcon, AlertTriangle, Wrench, Phone, AlertTriangle as VzIcon, Church, Baby, User, DollarSign, Scale } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useState, useEffect, useRef } from 'react';
@@ -255,6 +255,9 @@ export const NavBar = ({ unreadCount, user, onLogout }: {
     { to: '/historic-sites', icon: <Building2 size={16} />, label: 'Historic Sites' },
     { to: '/daycares', icon: <Baby size={16} />, label: 'Daycares' },
     { to: '/places-of-worship', icon: <Church size={16} />, label: 'Worship' },
+    { to: '/parcel-owners', icon: <User size={16} />, label: 'Parcel Owners' },
+    { to: '/property-assessments', icon: <DollarSign size={16} />, label: 'Assessments' },
+    { to: '/zoning-variances', icon: <Scale size={16} />, label: 'Zoning Variances' },
   ];
 
   return (

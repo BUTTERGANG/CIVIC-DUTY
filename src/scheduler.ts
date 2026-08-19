@@ -21,6 +21,8 @@ import { HamCoPollingScraper } from './scrapers/hamco_polling';
 import { IndyCfsScraper } from './scrapers/indy_cfs';
 import { IndyVisionZeroScraper } from './scrapers/indy_visionzero';
 import { IndyHistoricSitesScraper, IndyDaycareScraper, IndyPlacesOfWorshipScraper } from './scrapers/indy_community';
+import { IndyParcelOwnerScraper, IndyPropertyAssessmentScraper } from './scrapers/indy_parcel_owners';
+import { IndyZoningVarianceScraper } from './scrapers/indy_zoning_variances';
 
 async function logScrape(
   source: string,
@@ -123,9 +125,20 @@ export function setupScheduler() {
   scheduleWithLogging('0 7 * * 0', 'indy_daycares',               () => communityDirScrapers.daycares.run());
   scheduleWithLogging('0 8 * * 0', 'indy_places_of_worship',      () => communityDirScrapers.worship.run());
 
+  // Property & zoning (weekly, moderate churn)
+  const propertyScrapers = {
+    parcelOwners: new IndyParcelOwnerScraper(),
+    assessments:  new IndyPropertyAssessmentScraper(),
+    zoningVars:   new IndyZoningVarianceScraper(),
+  };
+  scheduleWithLogging('0 10 * * 0', 'indy_parcel_owners',         () => propertyScrapers.parcelOwners.run());
+  scheduleWithLogging('0 11 * * 0', 'indy_property_assessments',  () => propertyScrapers.assessments.run());
+  scheduleWithLogging('0 12 * * 0', 'indy_zoning_variances',      () => propertyScrapers.zoningVars.run());
+
   console.log('[Scheduler] Cron jobs configured successfully.');
   console.log(`[Scheduler] Fishers: ${Object.keys(fishersScrapers).length} scrapers`);
   console.log(`[Scheduler] Indianapolis: ${Object.keys(indyScrapers).length} scrapers`);
   console.log(`[Scheduler] Hamilton County: ${Object.keys(hamcoScrapers).length} scrapers`);
   console.log(`[Scheduler] Community Directory: ${Object.keys(communityDirScrapers).length} scrapers`);
+  console.log(`[Scheduler] Property: ${Object.keys(propertyScrapers).length} scrapers`);
 }

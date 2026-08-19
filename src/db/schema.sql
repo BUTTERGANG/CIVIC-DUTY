@@ -559,3 +559,72 @@ CREATE INDEX IF NOT EXISTS idx_hs_district ON historic_sites (city, district);
 
 CREATE INDEX IF NOT EXISTS idx_daycares_city ON daycares (city);
 CREATE INDEX IF NOT EXISTS idx_worship_city ON places_of_worship (city);
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- EXPANDED DATA SOURCES (Wave 2 — August 2026)
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+-- Parcel Owners (Accela HHC — 410K records, non-spatial)
+CREATE TABLE IF NOT EXISTS parcel_owners (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'indy',
+    state_parcel_number TEXT,
+    parcel_i INTEGER,
+    owner_name TEXT,
+    property_class TEXT,
+    property_sub_class TEXT,
+    property_sub_class_description TEXT,
+    township_name TEXT,
+    owner_address TEXT,
+    owner_address2 TEXT,
+    owner_city TEXT,
+    owner_state TEXT,
+    owner_zip TEXT,
+    land_total DECIMAL(15, 2),
+    improvement_total DECIMAL(15, 2),
+    source TEXT DEFAULT 'indy_accela',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(city, parcel_i)
+);
+
+-- Property Assessments (Accela XAPO — 354K records)
+CREATE TABLE IF NOT EXISTS property_assessments (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'indy',
+    parcel_tag BIGINT,
+    improved_value TEXT,
+    land_value TEXT,
+    legal_desc TEXT,
+    parcel_number TEXT,
+    state_pin TEXT,
+    address TEXT,
+    owner_name TEXT,
+    source TEXT DEFAULT 'indy_accela',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(city, parcel_tag)
+);
+
+-- Zoning Variances (Accela XAPO — 24K records)
+CREATE TABLE IF NOT EXISTS zoning_variances (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'indy',
+    case_number TEXT NOT NULL,
+    recommendation TEXT,
+    status TEXT,
+    decision_date TIMESTAMP WITH TIME ZONE,
+    planner TEXT,
+    lat DECIMAL(10, 8),
+    lng DECIMAL(11, 8),
+    source TEXT DEFAULT 'indy_accela',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(city, case_number)
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_po_owner ON parcel_owners (owner_name);
+CREATE INDEX IF NOT EXISTS idx_po_parcel ON parcel_owners (state_parcel_number);
+CREATE INDEX IF NOT EXISTS idx_po_class ON parcel_owners (property_class);
+CREATE INDEX IF NOT EXISTS idx_pa_parcel ON property_assessments (parcel_number);
+CREATE INDEX IF NOT EXISTS idx_pa_owner ON property_assessments (owner_name);
+CREATE INDEX IF NOT EXISTS idx_zv_case ON zoning_variances (case_number);
+CREATE INDEX IF NOT EXISTS idx_zv_status ON zoning_variances (status);

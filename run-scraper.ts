@@ -12,6 +12,8 @@ import { HamCoPollingScraper } from './src/scrapers/hamco_polling';
 import { IndyCfsScraper } from './src/scrapers/indy_cfs';
 import { IndyVisionZeroScraper } from './src/scrapers/indy_visionzero';
 import { IndyHistoricSitesScraper, IndyDaycareScraper, IndyPlacesOfWorshipScraper } from './src/scrapers/indy_community';
+import { IndyParcelOwnerScraper, IndyPropertyAssessmentScraper } from './src/scrapers/indy_parcel_owners';
+import { IndyZoningVarianceScraper } from './src/scrapers/indy_zoning_variances';
 
 const target = process.argv[2] ?? 'council';
 
@@ -31,6 +33,9 @@ const scrapers: Record<string, { run(): Promise<void> }> = {
   historic_sites:   new IndyHistoricSitesScraper(),
   daycares:         new IndyDaycareScraper(),
   worship:          new IndyPlacesOfWorshipScraper(),
+  parcel_owners:    new IndyParcelOwnerScraper(),
+  assessments:      new IndyPropertyAssessmentScraper(),
+  zoning_vars:      new IndyZoningVarianceScraper(),
 };
 
 const scraper = scrapers[target];
