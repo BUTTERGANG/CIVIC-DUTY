@@ -94,10 +94,14 @@ CIVIC-DUTY/
         │   ├── Court.tsx           # Cached cases + on-demand MyCase lookup
         │   ├── Alerts.tsx          # Watchlist rules CRUD + triggered feed
         │   ├── Login.tsx           # Sign-in / register form
-        │   └── Parcels.tsx, Buildings.tsx, Schools.tsx, Parks.tsx, Polling.tsx, TaxDistricts.tsx
-        │                          # Hamilton County GIS layers
-        │                          # Incidents, Crashes, Citations, Use of Force, Service Requests:
-        │                          #   API routes + frontend pages
+        │   │   └── Parcels.tsx, Buildings.tsx, Schools.tsx, Parks.tsx, Polling.tsx, TaxDistricts.tsx
+        │   │                          # Hamilton County GIS layers
+        │   │                          # Incidents, Crashes, Citations, Use of Force, Service Requests:
+        │   │                          #   API routes + frontend pages
+        │   │                          # CallsForService.tsx, VisionZero.tsx, HistoricSites.tsx,
+        │   │                          # Daycares.tsx, PlacesOfWorship.tsx, ParcelOwners.tsx,
+        │   │                          # PropertyAssessments.tsx, ZoningVariances.tsx:
+        │   │                          #   Expanded data source pages (Aug 2026)
         └── components/
             └── Shared.tsx          # ModuleBadge, StatusChip, DocumentList, AlertCard, NavBar
 ```
@@ -158,6 +162,19 @@ PostgreSQL database: `civic_duty`
 | `use_of_force` | ArcGIS — IMPD Use of Force | `(city, report_id)` |
 | `service_requests` | ArcGIS — RequestIndy 311 | `(city, request_id)` |
 | `parcels` | ArcGIS — MapIndy (~400K rows, weekly cron) | `(city, parcel_id)` |
+
+**Expanded Data Sources (Aug 2026)**
+
+| Table | Populated by | Dedup key | Key columns |
+|---|---|---|---|
+| `calls_for_service` | ArcGIS — IMPD CAD (5.1M records) | `(city, cad)` | `incident_type`, `address`, `lat`, `lng`, `received_at`, `dispatched_at`, `arrived_at`, `cleared_at`, `district`, `council_district` |
+| `visionzero_crashes` | ArcGIS — DPW VisionZero (249K records) | `(city, crash_id)` | `crash_type`, `severity`, `pedestrians`, `bicycle`, `injuries`, `fatalities`, `hit_and_run`, `roadway_class`, `lat`, `lng` |
+| `historic_sites` | ArcGIS — Accela AGIS (2,103 records) | `(city, name, address)` | `name`, `address`, `year_built`, `district`, `rating`, `notes` |
+| `daycares` | ArcGIS — Accela AGIS (195 records) | `(city, name, address)` | `name`, `address`, `license_number`, `provider_type` |
+| `places_of_worship` | ArcGIS — Accela AGIS (1,072 records) | `(city, name, address)` | `name`, `place_type`, `address` |
+| `parcel_owners` | ArcGIS — Accela HHC (410K records) | `(city, parcel_i)` | `owner_name`, `property_class`, `township_name`, `owner_address`, `land_total`, `improvement_total` |
+| `property_assessments` | ArcGIS — Accela XAPO (354K records) | `(city, parcel_tag)` | `improved_value`, `land_value`, `legal_desc`, `parcel_number`, `owner_name` |
+| `zoning_variances` | ArcGIS — Accela XAPO (24K records) | `(city, case_number)` | `case_number`, `recommendation`, `status`, `decision_date`, `planner`, `lat`, `lng` |
 
 **Hamilton County** (`city = 'hamco'`, except `parcels` which is per-municipality via `CORPLIMIT`)
 
@@ -310,7 +327,20 @@ Every job below is wrapped in `scheduleWithLogging()` (`src/scheduler.ts`), whic
 | Citations | Daily 1pm | ArcGIS — IMPD Citations |
 | Use of force | Daily 2pm | ArcGIS — IMPD Use of Force |
 | Service requests | Daily 3pm | ArcGIS — RequestIndy 311 |
-| Parcels | Weekly, Sun 2am | ArcGIS — MapIndy (~400K rows; first run 30–60 min) |
+|| Parcels | Weekly, Sun 2am | ArcGIS — MapIndy (~400K rows; first run 30–60 min) |
+|| Calls for Service (CFS) | Daily 4pm | ArcGIS — IMPD CAD (5.1M records) |
+|| VisionZero Crashes | Daily 5pm | ArcGIS — DPW VisionZero |
+
+**Expanded Data Sources (Aug 2026)**
+
+| Scraper | Schedule | Source(s) |
+|---|---|---|
+| Historic Sites | Weekly, Sun 6am | ArcGIS — Accela AGIS |
+| Daycares | Weekly, Sun 7am | ArcGIS — Accela AGIS |
+| Places of Worship | Weekly, Sun 8am | ArcGIS — Accela AGIS |
+| Parcel Owners | Weekly, Sun 10am | ArcGIS — Accela HHC |
+| Property Assessments | Weekly, Sun 11am | ArcGIS — Accela XAPO |
+| Zoning Variances | Weekly, Sun 12pm | ArcGIS — Accela XAPO |
 
 **Hamilton County**
 
@@ -382,6 +412,19 @@ messages name tables, columns and constraints.
 
 All of the above also support `GET /:id`. All five public-safety resources have frontend pages at `/incidents`, `/crashes`, `/citations`, `/use-of-force`, and `/service-requests`.
 
+### Expanded Data Sources (Aug 2026)
+
+| Method | Path | Query params |
+|---|---|---|
+| `GET` | `/api/cfs` | `city`, `incident_type`, `district`, `from`, `to`, `limit`, `offset` |
+| `GET` | `/api/visionzero` | `city`, `crash_type`, `severity`, `district`, `from`, `to`, `limit`, `offset` |
+| `GET` | `/api/historic-sites` | `city`, `district`, `rating`, `q`, `limit`, `offset` |
+| `GET` | `/api/daycares` | `city`, `q`, `limit`, `offset` |
+| `GET` | `/api/places-of-worship` | `city`, `place_type`, `q`, `limit`, `offset` |
+| `GET` | `/api/parcel-owners` | `city`, `owner_name`, `q`, `property_class`, `parcel_number`, `limit`, `offset` |
+| `GET` | `/api/property-assessments` | `city`, `parcel_number`, `owner_name`, `address`, `limit`, `offset` |
+| `GET` | `/api/zoning-variances` | `city`, `case_number`, `status`, `planner`, `from`, `to`, `limit`, `offset` |
+
 ### Alerts (Bearer JWT required)
 | Method | Path | Notes |
 |---|---|---|
@@ -447,7 +490,12 @@ See [DATA_SOURCES.md](DATA_SOURCES.md) for full API shapes, field mappings, volu
 | ArcGIS — IMPD incidents/crashes/citations/use-of-force | REST API (ArcGIS FeatureServer), no auth |
 | ArcGIS — RequestIndy 311 | REST API (ArcGIS FeatureServer), no auth |
 | ArcGIS — MapIndy parcels | REST API (ArcGIS FeatureServer), no auth, ~400K rows |
-| ArcGIS — Hamilton County GIS (parcels, buildings, tax districts, schools, parks, polling) | REST API (ArcGIS FeatureServer/MapServer), no auth |
+|| ArcGIS — Hamilton County GIS (parcels, buildings, tax districts, schools, parks, polling) | REST API (ArcGIS FeatureServer/MapServer), no auth |
+|| ArcGIS — IMPD CAD (Calls for Service) | REST API (ArcGIS FeatureServer), no auth |
+|| ArcGIS — DPW VisionZero (crashes) | REST API (ArcGIS FeatureServer), no auth |
+|| ArcGIS — Accela AGIS (historic sites, daycares, worship) | REST API (ArcGIS FeatureServer), no auth |
+|| ArcGIS — Accela HHC (parcel owners, property assessments) | REST API (ArcGIS FeatureServer), no auth |
+|| ArcGIS — Accela XAPO (zoning variances) | REST API (ArcGIS FeatureServer), no auth |
 
 ---
 
@@ -456,7 +504,9 @@ See [DATA_SOURCES.md](DATA_SOURCES.md) for full API shapes, field mappings, volu
 Cross-project roadmap lives in `SCRUM/06_Programs/civic-duty/context.md`; in-repo task detail lives in `SCRUM/Backlog/*.md` and `TODO.md`. Prioritized next steps:
 
 1. **Decide the fate of `campaign_expenditures`.** Table exists, nothing writes to it. Either finish `SCRUM/Backlog/fcpa_expenditure_ingestion.md` (wire up scraper + `/api/campaign/expenditures` route) or drop the table.
-2. **Run the 6 Indy scrapers against a real Postgres instance** and confirm rows land correctly. Field mapping is now pinned by `src/__tests__/arcgis.test.ts`, but the upsert path hasn't been exercised against a real DB outside of CI — run `npx ts-node run-scraper.ts <module>` (or wait for the next scheduled cron) against a real `DATABASE_URL` and spot-check the tables.
-3. **Widen test coverage beyond the mapping layer.** `src/__tests__` covers ArcGIS field mapping, alert rule matching, and pagination clamping — all pure logic. There is still no coverage of the route handlers, the upsert paths, or the PDF/CSV parsers; the Postgres smoke test in CI only asserts that `/health` returns 200.
-4. **Build frontend pages in additional cities.** The Fishers and Indianapolis page sets are complete. A new city (e.g. Carmel via CivicEngage) would need a new scraper module (`src/scrapers/carmel_council.ts`), API routes, and a UI page set following the existing patterns. See `SCRUM/Backlog/multitown_civicengage_scraper.md`.
-5. **Backlog items** (SCRUM/Backlog, status `sprint`): CivicClerk per-agenda-item PDF text extraction (P3), MyCase party-name search (P3).
+2. **Run scrapers against a real Postgres instance.** Backend and frontend are fully built for 8 new datasets, but none have been exercised against a real DB outside of CI. Deploy with a Neon DATABASE_URL and run `npx ts-node run-scraper.ts <module>` for each.
+3. **Food safety / restaurant inspections.** Marion County health inspection data exists on MyHealthDepartment.com — needs Playwright or API investigation to determine the scrape pattern.
+4. **Building permits (Accela REST API).** The Accela Civic Platform API is the city's permitting system. Needs endpoint discovery and authentication.
+5. **Property sales / deed records.** County auditor sites vary by county — Marion County vs. Hamilton County have different systems.
+6. **Backlog items** (SCRUM/Backlog, status `sprint`): CivicClerk per-agenda-item PDF text extraction (P3), MyCase party-name search (P3).
+7. **Widen test coverage.** 42 tests cover mapping, alerts, and pagination. The upsert path, route handlers, and new dataset field mappings are still untested.
