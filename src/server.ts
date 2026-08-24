@@ -34,6 +34,7 @@ import historicSitesRouter from './routes/historic_sites';
 import daycaresRouter from './routes/daycares';
 import placesOfWorshipRouter from './routes/places_of_worship';
 import parcelOwnersRouter from './routes/parcel_owners';
+import illinoisMinesRouter from './routes/illinois_mines';
 import propertyAssessmentsRouter from './routes/property_assessments';
 import zoningVariancesRouter from './routes/zoning_variances';
 
@@ -78,6 +79,7 @@ app.use('/api/historic-sites', historicSitesRouter);
 app.use('/api/daycares', daycaresRouter);
 app.use('/api/places-of-worship', placesOfWorshipRouter);
 app.use('/api/parcel-owners', parcelOwnersRouter);
+app.use('/api/illinois-mines', illinoisMinesRouter);
 app.use('/api/property-assessments', propertyAssessmentsRouter);
 app.use('/api/zoning-variances', zoningVariancesRouter);
 

@@ -8,6 +8,7 @@ hidden = ["dist", "node_modules", ".config"]
 channel = "stable-24_11"
 
 [env]
+CLAUDE_CONFIG_DIR = "/home/runner/workspace/.local/state/claude"
 PORT = "3333"
 # Use the Nix-provided Chromium (see replit.nix) rather than letting Playwright
 # download its own — that fails against Replit's read-only Nix store.

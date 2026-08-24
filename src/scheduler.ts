@@ -23,6 +23,7 @@ import { IndyVisionZeroScraper } from './scrapers/indy_visionzero';
 import { IndyHistoricSitesScraper, IndyDaycareScraper, IndyPlacesOfWorshipScraper } from './scrapers/indy_community';
 import { IndyParcelOwnerScraper, IndyPropertyAssessmentScraper } from './scrapers/indy_parcel_owners';
 import { IndyZoningVarianceScraper } from './scrapers/indy_zoning_variances';
+import { IllinoisMinePermitsScraper, IllinoisMineShaftsScraper, IllinoisAggregateMinesScraper } from './scrapers/illinois_mines';
 
 async function logScrape(
   source: string,
@@ -114,6 +115,16 @@ export function setupScheduler() {
   scheduleWithLogging('0 5 * * 2', 'hamco_schools',               () => hamcoScrapers.schools.run());
   scheduleWithLogging('0 5 * * 3', 'hamco_parks',                 () => hamcoScrapers.parks.run());
   scheduleWithLogging('0 5 * * 4', 'hamco_polling',               () => hamcoScrapers.polling.run());
+
+  // Illinois schedule (IL DNR — weekly, low churn)
+  const illinoisScrapers = {
+    minePermits:   new IllinoisMinePermitsScraper(),
+    mineShafts:    new IllinoisMineShaftsScraper(),
+    aggregateMines:new IllinoisAggregateMinesScraper(),
+  };
+  scheduleWithLogging('0 8 * * 6', 'il_mine_permits',             () => illinoisScrapers.minePermits.run());
+  scheduleWithLogging('30 8 * * 6', 'il_mine_shafts',            () => illinoisScrapers.mineShafts.run());
+  scheduleWithLogging('0 9 * * 6', 'il_agg_mines',               () => illinoisScrapers.aggregateMines.run());
 
   // Community directory (weekly, low churn)
   const communityDirScrapers = {

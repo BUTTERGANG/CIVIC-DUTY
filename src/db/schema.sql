@@ -628,3 +628,74 @@ CREATE INDEX IF NOT EXISTS idx_pa_parcel ON property_assessments (parcel_number)
 CREATE INDEX IF NOT EXISTS idx_pa_owner ON property_assessments (owner_name);
 CREATE INDEX IF NOT EXISTS idx_zv_case ON zoning_variances (case_number);
 CREATE INDEX IF NOT EXISTS idx_zv_status ON zoning_variances (status);
+
+
+-- ── Illinois (IL DNR MinesPublic service) ────────────────────────────────────
+
+-- Mine permit boundaries (polygon layer, lat/lng = representative centroid)
+CREATE TABLE IF NOT EXISTS illinois_mine_permits (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'illinois',
+    permit_id TEXT,
+    national_id TEXT,
+    permittee TEXT,
+    mine_name TEXT,
+    unit_name TEXT,
+    unit_no INTEGER,
+    acres DECIMAL(12, 2),
+    date_issued DATE,
+    status_date DATE,
+    permit_type TEXT,
+    status TEXT,
+    contact TEXT,
+    lat DECIMAL(10, 8),
+    lng DECIMAL(11, 8),
+    source TEXT DEFAULT 'il_dnr_gis',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(national_id, permit_id, unit_no)
+);
+CREATE INDEX IF NOT EXISTS idx_il_mine_permits_status ON illinois_mine_permits (status);
+CREATE INDEX IF NOT EXISTS idx_il_mine_permits_lat_lng ON illinois_mine_permits (lat, lng);
+
+-- Documented mine shaft locations (point layer)
+CREATE TABLE IF NOT EXISTS illinois_mine_shafts (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'illinois',
+    m_index TEXT UNIQUE,
+    shaft_type TEXT,
+    type_label TEXT,
+    county TEXT,
+    seam TEXT,
+    post_law BOOLEAN,
+    active BOOLEAN,
+    feature_url TEXT,
+    lat DECIMAL(10, 8),
+    lng DECIMAL(11, 8),
+    source TEXT DEFAULT 'il_dnr_gis',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_il_mine_shafts_county ON illinois_mine_shafts (county);
+CREATE INDEX IF NOT EXISTS idx_il_mine_shafts_lat_lng ON illinois_mine_shafts (lat, lng);
+
+-- Aggregate (sand and gravel) mines (point layer)
+CREATE TABLE IF NOT EXISTS illinois_aggregate_mines (
+    id SERIAL PRIMARY KEY,
+    city TEXT NOT NULL DEFAULT 'illinois',
+    site_id TEXT UNIQUE,
+    operator TEXT,
+    operation TEXT,
+    mine_name TEXT,
+    mineral TEXT,
+    blasting BOOLEAN,
+    address TEXT,
+    contact_city TEXT,
+    state TEXT,
+    zip TEXT,
+    phone TEXT,
+    lat DECIMAL(10, 8),
+    lng DECIMAL(11, 8),
+    source TEXT DEFAULT 'il_dnr_gis',
+    scraped_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_il_agg_mines_operator ON illinois_aggregate_mines (operator);
+CREATE INDEX IF NOT EXISTS idx_il_agg_mines_lat_lng ON illinois_aggregate_mines (lat, lng);

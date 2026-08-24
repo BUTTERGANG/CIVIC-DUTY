@@ -14,6 +14,7 @@ import { IndyVisionZeroScraper } from './src/scrapers/indy_visionzero';
 import { IndyHistoricSitesScraper, IndyDaycareScraper, IndyPlacesOfWorshipScraper } from './src/scrapers/indy_community';
 import { IndyParcelOwnerScraper, IndyPropertyAssessmentScraper } from './src/scrapers/indy_parcel_owners';
 import { IndyZoningVarianceScraper } from './src/scrapers/indy_zoning_variances';
+import { IllinoisMinePermitsScraper, IllinoisMineShaftsScraper, IllinoisAggregateMinesScraper } from './src/scrapers/illinois_mines';
 
 const target = process.argv[2] ?? 'council';
 
@@ -36,6 +37,9 @@ const scrapers: Record<string, { run(): Promise<void> }> = {
   parcel_owners:    new IndyParcelOwnerScraper(),
   assessments:      new IndyPropertyAssessmentScraper(),
   zoning_vars:      new IndyZoningVarianceScraper(),
+  il_mine_permits:  new IllinoisMinePermitsScraper(),
+  il_mine_shafts:   new IllinoisMineShaftsScraper(),
+  il_agg_mines:     new IllinoisAggregateMinesScraper(),
 };
 
 const scraper = scrapers[target];
