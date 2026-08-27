@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ModuleBadge, StatusChip, EmptyState } from '../components/Shared';
-import { Search, Clock, Scale, Loader, ChevronLeft, ChevronRight } from 'lucide-react';
-import { fetchCourt, lookupCourtCase, CourtCase } from '../api';
+import { Search, Clock, Scale, Loader, ChevronLeft, ChevronRight, Users, FileText } from 'lucide-react';
+import { fetchCourt, lookupCourtCase, lookupCourtCasesByParty, CourtCase, PartyNameSearchResult } from '../api';
 import { errorMessage, formatDate, formatDateTime, latestTimestamp, timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 
 const CASE_NUM_RE = /^\d{2}[A-Z]\d{2}-\d{4}-[A-Z]{1,3}-\d+$/i;
 const PAGE_SIZE = 25;
+
+type SearchMode = 'case' | 'party';
 
 function CaseCard({ c }: { c: CourtCase }) {
   const parties: { name: string; role: string }[] = Array.isArray(c.parties) ? c.parties : [];
@@ -74,7 +76,9 @@ export default function Court() {
 
   // Search / lookup state
   const [query, setQuery] = useState('');
+  const [searchMode, setSearchMode] = useState<SearchMode>('case');
   const [lookupResult, setLookupResult] = useState<{ source: string; case: CourtCase } | null>(null);
+  const [partyResults, setPartyResults] = useState<PartyNameSearchResult | null>(null);
   const [lookupError, setLookupError] = useState('');
   const [looking, setLooking] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
@@ -110,13 +114,25 @@ export default function Court() {
     if (!q) return;
     setLookupError('');
     setLookupResult(null);
+    setPartyResults(null);
     setLooking(true);
     try {
-      const result = await lookupCourtCase(q);
-      setLookupResult(result);
-      setCases(prev => prev.some(c => c.case_number === result.case.case_number)
-        ? prev
-        : [result.case, ...prev]);
+      if (searchMode === 'case') {
+        const result = await lookupCourtCase(q);
+        setLookupResult(result);
+        setCases(prev => prev.some(c => c.case_number === result.case.case_number)
+          ? prev
+          : [result.case, ...prev]);
+      } else {
+        const result = await lookupCourtCasesByParty(q);
+        setPartyResults(result);
+        // Add unique new cases to the cached list
+        setCases(prev => {
+          const existing = new Set(prev.map(c => c.case_number));
+          const newCases = result.cases.filter(c => !existing.has(c.case_number));
+          return newCases.length > 0 ? [...newCases, ...prev] : prev;
+        });
+      }
     } catch (err) {
       setLookupError(errorMessage(err));
       showError(errorMessage(err));
@@ -125,7 +141,10 @@ export default function Court() {
     }
   };
 
-  const isLookupQuery = CASE_NUM_RE.test(query.trim());
+  const isLookupQuery = searchMode === 'case'
+    ? CASE_NUM_RE.test(query.trim())
+    : query.trim().length >= 2;
+
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const hasNext = page + 1 < totalPages;
 
@@ -139,43 +158,82 @@ export default function Court() {
             <ModuleBadge module="court" />
           </div>
           <p className="text-slate-500 text-sm max-w-xl">
-            Search cached Hamilton County cases, or look up any Indiana case number live from MyCase.
+            Search cached Hamilton County cases, or look up any Indiana case or party live from MyCase.
           </p>
         </div>
 
         {/* Search + Lookup */}
-        <div className="flex gap-2">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Case number or party name…"
-              className="input-field pl-8 w-full md:w-80"
-              value={query}
-              onChange={e => { setQuery(e.target.value); setLookupResult(null); setLookupError(''); }}
-              onKeyDown={e => e.key === 'Enter' && isLookupQuery && handleLookup()}
-            />
-          </div>
-          {isLookupQuery && (
+        <div className="flex flex-col gap-2">
+          {/* Search mode tabs */}
+          <div className="flex bg-white/[0.03] rounded-lg p-0.5 border border-white/[0.06] self-end">
             <button
-              onClick={handleLookup}
-              disabled={looking}
-              className="btn-primary px-4 shrink-0 disabled:opacity-50 flex items-center gap-2"
+              onClick={() => { setSearchMode('case'); setLookupResult(null); setPartyResults(null); setLookupError(''); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                searchMode === 'case'
+                  ? 'bg-primary/20 text-primary shadow-sm'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
             >
-              {looking ? <Loader size={14} className="animate-spin" /> : <Search size={14} />}
-              {looking ? 'Looking up…' : 'Look up'}
+              <FileText size={12} />
+              Case Number
             </button>
-          )}
+            <button
+              onClick={() => { setSearchMode('party'); setLookupResult(null); setPartyResults(null); setLookupError(''); }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                searchMode === 'party'
+                  ? 'bg-primary/20 text-primary shadow-sm'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              <Users size={12} />
+              Party Name
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <input
+                type="text"
+                placeholder={searchMode === 'case' ? "Case number…" : "Name (last, first or business)…"}
+                className="input-field pl-8 w-full md:w-80"
+                value={query}
+                onChange={e => { setQuery(e.target.value); setLookupResult(null); setPartyResults(null); setLookupError(''); }}
+                onKeyDown={e => e.key === 'Enter' && isLookupQuery && handleLookup()}
+              />
+            </div>
+            {isLookupQuery && (
+              <button
+                onClick={handleLookup}
+                disabled={looking}
+                className="btn-primary px-4 shrink-0 disabled:opacity-50 flex items-center gap-2"
+              >
+                {looking ? <Loader size={14} className="animate-spin" /> : <Search size={14} />}
+                {looking ? 'Searching…' : 'Search'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Lookup result banner */}
+      {/* Lookup result banner (case number) */}
       {lookupResult && (
         <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-xs text-primary flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-primary" />
           {lookupResult.source === 'cache' ? 'Returned from cache' : 'Fetched live from MyCase and cached'}
         </div>
       )}
+
+      {/* Party search results banner */}
+      {partyResults && (
+        <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-xs text-primary flex items-center gap-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+          Found {partyResults.cases.length} case{partyResults.cases.length !== 1 ? 's' : ''}
+          {partyResults.hasMore ? ' (more available — narrow your search)' : ''}
+          {' — fetched live from MyCase and cached'}
+        </div>
+      )}
+
       {lookupError && (
         <div className="rounded-xl border border-danger/30 bg-danger/5 px-4 py-2.5 text-xs text-danger">
           {lookupError}
@@ -183,10 +241,27 @@ export default function Court() {
       )}
 
       {/* Lookup hint */}
-      {isLookupQuery && !lookupResult && !lookupError && !looking && (
+      {isLookupQuery && !lookupResult && !partyResults && !lookupError && !looking && (
         <p className="text-xs text-slate-600">
-          Looks like a case number — press Enter or click "Look up" to fetch it from MyCase.
+          {searchMode === 'case'
+            ? 'Looks like a case number — press Enter or click "Search" to fetch it from MyCase.'
+            : 'Enter a party name (last name, first name, or business name) to search MyCase.'}
         </p>
+      )}
+
+      {/* Party search results inline list */}
+      {partyResults && partyResults.cases.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Party Name Results</h2>
+          {partyResults.cases.map((c) => (
+            <CaseCard key={c.case_number} c={c} />
+          ))}
+          {partyResults.hasMore && (
+            <div className="text-center py-3">
+              <p className="text-xs text-slate-600">Refine your search for more specific results</p>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Status bar */}
@@ -202,24 +277,26 @@ export default function Court() {
             </div>
           )}
           {/* Pagination */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(0, p - 1))}
-              disabled={page === 0 || loadingCases}
-              className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="text-xs text-slate-600">Page {page + 1}</span>
-            <span className="text-[10px] text-slate-600 font-mono">{page + 1}/{totalPages}</span>
-            <button
-              onClick={() => setPage(p => p + 1)}
-              disabled={!hasNext || loadingCases}
-              className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
+          {!partyResults && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0 || loadingCases}
+                className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="text-xs text-slate-600">Page {page + 1}</span>
+              <span className="text-[10px] text-slate-600 font-mono">{page + 1}/{totalPages}</span>
+              <button
+                onClick={() => setPage(p => p + 1)}
+                disabled={!hasNext || loadingCases}
+                className="p-1 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -238,12 +315,12 @@ export default function Court() {
         ) : filtered.length === 0 && cases.length === 0 ? (
           <EmptyState
             title="No cases cached yet"
-            message="Enter an Indiana case number above (e.g. 29D01-2501-PL-000123) to look it up on MyCase."
+            message="Use the search above to look up a case by number or party name on MyCase."
           />
         ) : filtered.length === 0 ? (
           <EmptyState title="No matches" message="Try a different name or case number." />
         ) : (
-          filtered.map(c => <CaseCard key={c.id} c={c} />)
+          filtered.map(c => <CaseCard key={c.id ?? c.case_number} c={c} />)
         )}
       </div>
     </div>

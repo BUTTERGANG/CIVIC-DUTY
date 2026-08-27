@@ -11,6 +11,10 @@
 
 | Task | Agent | Priority | Est. |
 |------|-------|----------|------|
+| Campaign Expenditure Ingestion | 2026-08-26 | **in progress** |
+| Multi-Town CivicEngage Scraper (Zionsville) | 2026-08-26 | **in progress** |
+| CivicClerk Per-Agenda PDFs | 2026-08-26 | **in progress** |
+| MyCase Party Name Search | 2026-08-26 | **in progress** |
 | — | — | — | — |
 
 ---

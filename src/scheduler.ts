@@ -2,9 +2,10 @@
 import cron from 'node-cron';
 import { pool } from './db';
 import { CouncilScraper } from './scrapers/council';
+import { ZionsvilleCouncilScraper } from './scrapers/civicengage';
 import { BidsScraper } from './scrapers/bids';
 import { ZoningScraper } from './scrapers/zoning';
-import { CampaignScraper } from './scrapers/campaign';
+import { CampaignScraper, CampaignExpenditureScraper } from './scrapers/campaign';
 import { IndyCouncilScraper } from './scrapers/indy_council';
 import { IndyIncidentsScraper } from './scrapers/indy_incidents';
 import { IndyCrashesScraper } from './scrapers/indy_crashes';
@@ -48,6 +49,7 @@ export function setupScheduler() {
     bids:     new BidsScraper(),
     zoning:   new ZoningScraper(),
     campaign: new CampaignScraper(),
+    campaign_expenditures: new CampaignExpenditureScraper(),
   };
 
   const indyScrapers = {
@@ -95,7 +97,8 @@ export function setupScheduler() {
   scheduleWithLogging('0 6 * * *', 'council',     () => fishersScrapers.council.run());
   scheduleWithLogging('0 7 * * *', 'bids',        () => fishersScrapers.bids.run());
   scheduleWithLogging('0 8 * * *', 'zoning',      () => fishersScrapers.zoning.run());
-  scheduleWithLogging('0 9 * * 1', 'campaign',    () => fishersScrapers.campaign.run());
+  scheduleWithLogging('0 9 * * 1', 'campaign',              () => fishersScrapers.campaign.run());
+  scheduleWithLogging('0 9 * * 1', 'campaign_expenditures', () => fishersScrapers.campaign_expenditures.run());
 
   // Indianapolis schedule
   scheduleWithLogging('0 10 * * *', 'indy_council',               () => indyScrapers.council.run());
@@ -145,6 +148,10 @@ export function setupScheduler() {
   scheduleWithLogging('0 10 * * 0', 'indy_parcel_owners',         () => propertyScrapers.parcelOwners.run());
   scheduleWithLogging('0 11 * * 0', 'indy_property_assessments',  () => propertyScrapers.assessments.run());
   scheduleWithLogging('0 12 * * 0', 'indy_zoning_variances',      () => propertyScrapers.zoningVars.run());
+
+  // Zionsville schedule (daily, 30 min after Fishers council)
+  const zionsvilleCouncil = new ZionsvilleCouncilScraper();
+  scheduleWithLogging('30 6 * * *', 'zionsville_council',         () => zionsvilleCouncil.run());
 
   console.log('[Scheduler] Cron jobs configured successfully.');
   console.log(`[Scheduler] Fishers: ${Object.keys(fishersScrapers).length} scrapers`);

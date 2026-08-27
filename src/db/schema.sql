@@ -402,6 +402,8 @@ ALTER TABLE council_votes ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'past';
 ALTER TABLE council_votes ADD COLUMN IF NOT EXISTS summary TEXT;
 ALTER TABLE council_votes ADD COLUMN IF NOT EXISTS attached_pdfs JSONB;
 ALTER TABLE council_votes ADD COLUMN IF NOT EXISTS agenda_items JSONB;
+ALTER TABLE council_votes ADD COLUMN IF NOT EXISTS meeting_id INTEGER;
+ALTER TABLE council_votes ADD COLUMN IF NOT EXISTS item_attachments JSONB;
 -- Drop old global unique on event_id, add per-city unique
 DROP INDEX IF EXISTS idx_council_event_id;
 

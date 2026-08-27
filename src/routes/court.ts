@@ -4,7 +4,7 @@ import { pool } from '../db';
 import { clampLimit, clampOffset, sendError } from '../lib/http';
 import { requireAuth } from '../middleware/auth';
 import { courtLookupLimiter } from '../middleware/rateLimit';
-import { lookupCaseByNumber, saveCaseRecord } from '../scrapers/court';
+import { lookupCaseByNumber, lookupCasesByPartyName, saveCaseRecord } from '../scrapers/court';
 
 const router = Router();
 
@@ -43,43 +43,72 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/court/lookup  — on-demand case number lookup via MyCase.
+// POST /api/court/lookup  — on-demand case lookup via MyCase.
 // Auth + a tight rate limit are load-bearing here, not defence in depth: a
 // cache miss launches a headless Chromium and hits Indiana's MyCase site from
 // our IP. Left open, this is both a trivial way to exhaust the instance and a
 // good way to get the upstream source to block us.
+// Accepts either { case_number: string } or { partyName: string }.
 router.post('/lookup', requireAuth, courtLookupLimiter, async (req, res) => {
-  const { case_number } = req.body;
-  if (!case_number?.trim()) {
-    res.status(400).json({ error: 'case_number is required' });
-    return;
+  const { case_number, partyName } = req.body;
+
+  // --- Case-number lookup (single result) ---
+  if (case_number?.trim()) {
+    const cn = case_number.trim().toUpperCase();
+
+    try {
+      const cached = await pool.query(
+        'SELECT * FROM court_cases WHERE case_number = $1',
+        [cn]
+      );
+      if (cached.rows.length > 0) {
+        return res.json({ source: 'cache', case: cached.rows[0] });
+      }
+
+      console.log(`[Court] Looking up ${cn} on MyCase...`);
+      const found = await lookupCaseByNumber(cn);
+
+      if (!found) {
+        return res.status(404).json({ error: `Case ${cn} not found on MyCase` });
+      }
+
+      const id = await saveCaseRecord(found);
+      const saved = await pool.query('SELECT * FROM court_cases WHERE id = $1', [id]);
+      return res.json({ source: 'mycase', case: saved.rows[0] });
+    } catch (err: any) {
+      console.error('[Court] Lookup error:', err.message);
+      return res.status(500).json({ error: 'Lookup failed — MyCase may be unavailable' });
+    }
   }
 
-  const cn = case_number.trim().toUpperCase();
+  // --- Party-name search (multiple results) ---
+  if (partyName?.trim()) {
+    try {
+      console.log(`[Court] Searching MyCase for party name "${partyName.trim()}"...`);
+      const result = await lookupCasesByPartyName(partyName.trim(), 20);
 
-  try {
-    const cached = await pool.query(
-      'SELECT * FROM court_cases WHERE case_number = $1',
-      [cn]
-    );
-    if (cached.rows.length > 0) {
-      return res.json({ source: 'cache', case: cached.rows[0] });
+      // Persist each found case to the DB so it appears in the cached list
+      for (const rec of result.cases) {
+        try {
+          await saveCaseRecord(rec);
+        } catch (_) {
+          // Best-effort: a conflict means it's already cached
+        }
+      }
+
+      return res.json({
+        source: 'mycase',
+        cases: result.cases,
+        hasMore: result.hasMore,
+      });
+    } catch (err: any) {
+      console.error('[Court] Party-name search error:', err.message);
+      return res.status(500).json({ error: 'Party name search failed — MyCase may be unavailable' });
     }
-
-    console.log(`[Court] Looking up ${cn} on MyCase...`);
-    const found = await lookupCaseByNumber(cn);
-
-    if (!found) {
-      return res.status(404).json({ error: `Case ${cn} not found on MyCase` });
-    }
-
-    const id = await saveCaseRecord(found);
-    const saved = await pool.query('SELECT * FROM court_cases WHERE id = $1', [id]);
-    res.json({ source: 'mycase', case: saved.rows[0] });
-  } catch (err: any) {
-    console.error('[Court] Lookup error:', err.message);
-    res.status(500).json({ error: 'Lookup failed — MyCase may be unavailable' });
   }
+
+  // --- Neither provided ---
+  res.status(400).json({ error: 'Either case_number or partyName is required' });
 });
 
 // GET /api/court/:id

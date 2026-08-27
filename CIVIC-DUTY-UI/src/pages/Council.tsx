@@ -1,12 +1,22 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { ModuleBadge, StatusChip, DocumentList, EmptyState } from '../components/Shared';
-import { Search, SlidersHorizontal, ChevronDown, ChevronRight, FileText, Clock } from 'lucide-react';
+import { Search, SlidersHorizontal, ChevronDown, ChevronRight, FileText, Clock, ExternalLink } from 'lucide-react';
 import { fetchCouncil, CouncilVote, AgendaItem } from '../api';
 import { formatDate, latestTimestamp, timeAgo } from '../lib/format';
 import { useToast } from '../context/ToastContext';
 
-function AgendaPanel({ items }: { items: AgendaItem[] }) {
-  if (items.length === 0) return null;
+function AgendaPanel({ items, attachments }: { items: AgendaItem[]; attachments: CouncilVote['itemAttachments'] }) {
+  const [expandedAttachments, setExpandedAttachments] = useState<Set<number>>(new Set());
+
+  const toggleAttachment = (idx: number) => {
+    setExpandedAttachments(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
   return (
     <div className="border-t border-white/[0.04] bg-background/40 px-5 py-4">
       <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-3 flex items-center gap-1.5">
@@ -26,6 +36,71 @@ function AgendaPanel({ items }: { items: AgendaItem[] }) {
           </div>
         ))}
       </div>
+
+      {attachments && attachments.length > 0 && (
+        <>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-600 mt-4 mb-2 flex items-center gap-1.5">
+            <FileText size={10} />
+            Per-Item Documents ({attachments.length})
+          </p>
+          <div className="space-y-1.5">
+            {attachments.map((att, idx) => (
+              <div key={idx} className="text-xs">
+                <div className="flex items-start gap-2">
+                  <span className="font-mono font-bold text-slate-500 shrink-0 w-8">
+                    {att.outlineNumber || '-'}
+                  </span>
+                  <span className="text-slate-400 flex-1 leading-relaxed">
+                    {att.fileName}
+                    {att.resolution && (
+                      <span className="ml-2 text-[10px] font-mono text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded">
+                        {att.resolution}
+                      </span>
+                    )}
+                    {att.ordinance && (
+                      <span className="ml-2 text-[10px] font-mono text-primary bg-primary/8 border border-primary/20 px-1.5 py-0.5 rounded">
+                        {att.ordinance}
+                      </span>
+                    )}
+                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <a
+                      href={att.pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="text-primary hover:text-primary/70 transition-colors"
+                      title="Open PDF"
+                    >
+                      <ExternalLink size={12} />
+                    </a>
+                    {att.pdfText && (
+                      <button
+                        onClick={e => { e.stopPropagation(); toggleAttachment(idx); }}
+                        className="text-slate-500 hover:text-slate-300 transition-colors"
+                        title={expandedAttachments.has(idx) ? 'Collapse text' : 'View text excerpt'}
+                      >
+                        {expandedAttachments.has(idx)
+                          ? <ChevronDown size={12} />
+                          : <ChevronRight size={12} />
+                        }
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {expandedAttachments.has(idx) && att.pdfText && (
+                  <div className="ml-10 mt-1 p-2 bg-white/[0.03] border border-white/[0.06] rounded text-[11px] text-slate-500 leading-relaxed max-h-32 overflow-y-auto">
+                    {att.pdfText.slice(0, 1500)}
+                    {att.pdfText.length > 1500 && (
+                      <span className="text-slate-600 ml-1">... ({att.pdfText.length - 1500} more chars)</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -37,12 +112,13 @@ function CouncilRow({ v, filterTag, setFilterTag }: {
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasAgenda = v.agendaItems.length > 0;
+  const hasAttachments = v.itemAttachments && v.itemAttachments.length > 0;
 
   return (
     <>
       <tr
-        className={`group ${hasAgenda ? 'cursor-pointer' : ''}`}
-        onClick={() => hasAgenda && setExpanded(e => !e)}
+        className={`group ${hasAgenda || hasAttachments ? 'cursor-pointer' : ''}`}
+        onClick={() => (hasAgenda || hasAttachments) && setExpanded(e => !e)}
       >
         <td className="max-w-xs">
           <div className="text-[11px] text-slate-600 font-mono mb-1">{formatDate(v.date)}</div>
@@ -90,10 +166,10 @@ function CouncilRow({ v, filterTag, setFilterTag }: {
           <DocumentList docs={v.documents} />
         </td>
       </tr>
-      {expanded && hasAgenda && (
+      {expanded && (v.agendaItems.length > 0 || (v.itemAttachments && v.itemAttachments.length > 0)) && (
         <tr>
           <td colSpan={5} className="p-0">
-            <AgendaPanel items={v.agendaItems} />
+            <AgendaPanel items={v.agendaItems} attachments={v.itemAttachments} />
           </td>
         </tr>
       )}

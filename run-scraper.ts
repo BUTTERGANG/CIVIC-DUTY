@@ -1,7 +1,7 @@
 // Manual scraper runner — usage: npx ts-node run-scraper.ts [scraper-name]
 import { CouncilScraper } from './src/scrapers/council';
 import { BidsScraper } from './src/scrapers/bids';
-import { CampaignScraper } from './src/scrapers/campaign';
+import { CampaignScraper, CampaignExpenditureScraper } from './src/scrapers/campaign';
 import { ZoningScraper } from './src/scrapers/zoning';
 import { HamCoParcelsScraper } from './src/scrapers/hamco_parcels';
 import { HamCoBuildingsScraper } from './src/scrapers/hamco_buildings';
@@ -22,6 +22,7 @@ const scrapers: Record<string, { run(): Promise<void> }> = {
   council:          new CouncilScraper(),
   bids:             new BidsScraper(),
   campaign:         new CampaignScraper(),
+  campaign_expenditures: new CampaignExpenditureScraper(),
   zoning:           new ZoningScraper(),
   hamco_parcels:    new HamCoParcelsScraper(),
   hamco_buildings:  new HamCoBuildingsScraper(),

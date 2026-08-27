@@ -292,3 +292,221 @@ export async function processAgendaPdfs(concurrency = 1): Promise<void> {
 
   console.log(`[PDFScraper] Agendas done. Processed: ${processed} | Failed: ${failed}`);
 }
+
+// ── JSON fetch for CivicClerk API ────────────────────────────────────────────
+
+function fetchJson(url: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers: API_HEADERS }, res => {
+      let data = '';
+      res.on('data', chunk => (data += chunk));
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error(`JSON parse error for ${url}: ${(e as Error).message}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(30000, () => { req.destroy(); reject(new Error(`Timeout: ${url}`)); });
+  });
+}
+
+// ── Per-agenda-item attachment types ──────────────────────────────────────────
+
+interface PerItemAttachment {
+  id: number;
+  fileName: string;
+  contentType: string;
+  fileSize: number;
+  isPublished: boolean;
+  pdfVersionFullPath: string;      // SAS URL (time-limited)
+  mediaFullPath: string;           // blob container path without SAS
+  mediaFileName?: string;          // media file name
+}
+
+interface MeetingItem {
+  agendaObjectItemNumber: string;
+  agendaObjectItemOutlineNumber: string;
+  agendaObjectItemName: string;
+  resolutionFormattedNumber?: string;
+  ordinanceFormattedNumber?: string;
+  attachmentsList: PerItemAttachment[];
+  childItems: MeetingItem[];
+  isSection: number;
+}
+
+// ── Collect all attachments from a meeting item tree ──────────────────────────
+
+function collectItemAttachments(items: MeetingItem[]): {
+  outlineNumber: string;
+  name: string;
+  resolution: string;
+  ordinance: string;
+  attachments: PerItemAttachment[];
+}[] {
+  const results: {
+    outlineNumber: string;
+    name: string;
+    resolution: string;
+    ordinance: string;
+    attachments: PerItemAttachment[];
+  }[] = [];
+
+  for (const item of items) {
+    const outline = item.agendaObjectItemOutlineNumber || '';
+    const name = item.agendaObjectItemName || '';
+    const resolution = item.resolutionFormattedNumber || '';
+    const ordinance = item.ordinanceFormattedNumber || '';
+
+    // Collect attachments at this level
+    const atts = (item.attachmentsList || []).filter(a =>
+      a.isPublished !== false && a.contentType === 'application/pdf'
+    );
+
+    if (atts.length > 0) {
+      results.push({
+        outlineNumber: outline,
+        name,
+        resolution,
+        ordinance,
+        attachments: atts,
+      });
+    }
+
+    // Recurse into children
+    if (item.childItems && item.childItems.length > 0) {
+      const childResults = collectItemAttachments(item.childItems);
+      // Prepend parent outline to child outlines
+      for (const cr of childResults) {
+        cr.outlineNumber = outline ? `${outline}${cr.outlineNumber}` : cr.outlineNumber;
+      }
+      results.push(...childResults);
+    }
+  }
+
+  return results;
+}
+
+// ── Per-agenda-item PDF processor ─────────────────────────────────────────────
+
+const MEETING_API_BASE = 'https://fishersin.api.civicclerk.com/v1';
+
+export async function processPerItemPdfs(concurrency = 1): Promise<void> {
+  console.log('[PDFScraper] Fetching council_votes rows with unprocessed per-item attachments...');
+
+  const { rows } = await pool.query<{
+    id: number;
+    event_id: string;
+    meeting_id: number | null;
+    title: string;
+  }>(`
+    SELECT id, event_id, meeting_id, title
+    FROM council_votes
+    WHERE item_attachments IS NULL
+      AND meeting_id IS NOT NULL
+    ORDER BY date ASC
+  `);
+
+  console.log(`[PDFScraper] ${rows.length} events with meeting_id to process`);
+  let processed = 0, failed = 0, totalAttachments = 0;
+
+  for (let i = 0; i < rows.length; i += concurrency) {
+    const batch = rows.slice(i, i + concurrency);
+    await Promise.all(batch.map(async row => {
+      try {
+        // Step 1: Fetch meeting data from CivicClerk API
+        const meetingUrl = `${MEETING_API_BASE}/Meetings/${row.meeting_id}`;
+        const meeting = await fetchJson(meetingUrl);
+        const items: MeetingItem[] = meeting.items || [];
+
+        if (items.length === 0) {
+          // No items — mark as empty so we don't retry
+          await pool.query(
+            `UPDATE council_votes SET item_attachments = '[]'::jsonb, scraped_at = NOW() WHERE id = $1`,
+            [row.id]
+          );
+          processed++;
+          return;
+        }
+
+        // Step 2: Collect all per-item attachments from the item tree
+        const collected = collectItemAttachments(items);
+        if (collected.length === 0) {
+          await pool.query(
+            `UPDATE council_votes SET item_attachments = '[]'::jsonb, scraped_at = NOW() WHERE id = $1`,
+            [row.id]
+          );
+          processed++;
+          return;
+        }
+
+        // Step 3: Download each attachment PDF and extract text
+        const results: {
+          outlineNumber: string;
+          name: string;
+          resolution: string;
+          ordinance: string;
+          attachmentId: number;
+          fileName: string;
+          pdfText: string;
+          pdfUrl: string;
+        }[] = [];
+
+        for (const group of collected) {
+          for (const att of group.attachments) {
+            const pdfUrl = att.pdfVersionFullPath;
+            if (!pdfUrl) continue;
+
+            try {
+              const buffer = await fetchBuffer(pdfUrl);
+              const parser = new PDFParse({ data: buffer });
+              const pdfResult = await parser.getText();
+              const pdfText = pdfResult.text || '';
+
+              results.push({
+                outlineNumber: group.outlineNumber,
+                name: group.name,
+                resolution: group.resolution,
+                ordinance: group.ordinance,
+                attachmentId: att.id,
+                fileName: att.fileName || att.mediaFileName || 'document.pdf',
+                pdfText: pdfText.slice(0, 10000), // cap at 10K chars per attachment
+                pdfUrl,
+              });
+
+              totalAttachments++;
+            } catch (err) {
+              // If PDF download/parse fails, still record what we have
+              results.push({
+                outlineNumber: group.outlineNumber,
+                name: group.name,
+                resolution: group.resolution,
+                ordinance: group.ordinance,
+                attachmentId: att.id,
+                fileName: att.fileName || att.mediaFileName || 'document.pdf',
+                pdfText: '',
+                pdfUrl,
+              });
+            }
+
+            // Rate limiting: 500ms between downloads per event
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+
+        // Step 4: Store in DB
+        await pool.query(
+          `UPDATE council_votes SET item_attachments = $1, scraped_at = NOW() WHERE id = $2`,
+          [JSON.stringify(results), row.id]
+        );
+
+        processed++;
+        if (processed % 10 === 0) console.log(`[PDFScraper] Per-item: ${processed}/${rows.length}`);
+      } catch (err) {
+        failed++;
+        console.error(`[PDFScraper] Per-item failed for event ${row.event_id}:`, (err as Error).message);
+      }
+    }));
+  }
+
+  console.log(`[PDFScraper] Per-item done. Processed: ${processed} | Failed: ${failed} | Attachments downloaded: ${totalAttachments}`);
+}

@@ -1,13 +1,13 @@
 ---
 title: "MyCase Party-Name Search"
-status: sprint
+status: done
 priority: P3
 project: civic-duty
 type: dev
-agent_claimed: null
-claimed_at: null
+agent_claimed: sa-3
+claimed_at: '2026-08-27T00:00:00Z'
 created: '2026-06-08T00:00:00Z'
-updated: '2026-06-08T00:00:00Z'
+updated: '2026-08-27T00:00:00Z'
 tags: []
 due: null
 estimate: medium

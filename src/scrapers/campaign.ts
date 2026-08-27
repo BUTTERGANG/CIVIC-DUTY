@@ -36,6 +36,27 @@ interface ContribRow {
   Amended: string;
 }
 
+interface ExpenditureRow {
+  FileNumber: string;
+  CommitteeType: string;
+  Committee: string;
+  CandidateName: string;
+  ExpenditureCode: string;
+  Name: string;
+  Address: string;
+  City: string;
+  State: string;
+  Zip: string;
+  Occupation: string;
+  OfficeSought: string;
+  ExpenditureType: string;
+  Description: string;
+  Purpose: string;
+  Amount: string;
+  Expenditure_Date: string;
+  Amended: string;
+}
+
 /**
  * Streams a ZIP from `url`, extracts the single CSV inside, and yields rows.
  * Returns 0 immediately if the server returns a non-200 (e.g. year doesn't exist yet).
@@ -147,6 +168,124 @@ async function insertBatch(
   return { inserted, insertedRows };
 }
 
+/**
+ * Streams an expenditure CSV from a ZIP URL — same pattern as streamCsvFromZip
+ * but typed to ExpenditureRow.
+ */
+function streamExpenditureCsvFromZip(
+  url: string,
+  onBatch: (rows: ExpenditureRow[]) => Promise<void>
+): Promise<number> {
+  return new Promise((resolve, reject) => {
+    let totalRows = 0;
+    let batch: ExpenditureRow[] = [];
+    let pendingFlush: Promise<void> = Promise.resolve();
+
+    const req = https.get(url, { headers: CAMPAIGN_HEADERS }, res => {
+      if (res.statusCode !== 200) {
+        res.resume();
+        return resolve(0);
+      }
+
+      const csvStream = res
+        .pipe(unzipper.ParseOne())
+        .pipe(parse({ columns: true, skip_empty_lines: true, trim: true, relax_quotes: true, relax_column_count: true, skip_records_with_error: true }));
+
+      csvStream.on('data', (row: ExpenditureRow) => {
+        batch.push(row);
+        totalRows++;
+
+        if (batch.length >= BATCH_SIZE) {
+          const toFlush = batch.splice(0, BATCH_SIZE);
+          csvStream.pause();
+          pendingFlush = pendingFlush
+            .then(() => onBatch(toFlush))
+            .then(() => { csvStream.resume(); })
+            .catch(err => { csvStream.destroy(err); });
+        }
+      });
+
+      csvStream.on('end', () => {
+        pendingFlush
+          .then(() => batch.length > 0 ? onBatch(batch) : Promise.resolve())
+          .then(() => resolve(totalRows))
+          .catch(reject);
+      });
+
+      csvStream.on('error', reject);
+    });
+
+    req.on('error', reject);
+    req.setTimeout(120_000, () => {
+      req.destroy();
+      reject(new Error(`Timeout fetching ${url}`));
+    });
+  });
+}
+
+async function insertExpenditureBatch(
+  rows: ExpenditureRow[],
+  year: number
+): Promise<{ inserted: number; insertedRows: any[] }> {
+  let inserted = 0;
+  let insertedRows: any[] = [];
+
+  const values: any[] = [];
+  const placeholders: string[] = [];
+
+  for (const row of rows) {
+    const committeeName = row.Committee?.trim() || null;
+    const candidateName = row.CandidateName?.trim() || null;
+    const officeSought = row.OfficeSought?.trim() || null;
+    const payeeName = row.Name?.trim() || null;
+    const addressParts = [row.Address?.trim(), row.City?.trim(), row.State?.trim(), row.Zip?.trim()].filter(Boolean);
+    const payeeAddress = addressParts.length > 0 ? addressParts.join(', ') : null;
+    const purpose = row.Purpose?.trim() || null;
+    const amount = parseFloat(row.Amount) || null;
+    const rawDate = row.Expenditure_Date?.trim();
+    const expenditureDate = rawDate ? rawDate.split(' ')[0] : null;
+    const reportType = row.ExpenditureType?.trim() || null;
+
+    if (!payeeName || amount === null || !expenditureDate) continue;
+
+    const base = values.length;
+    values.push(
+      committeeName,
+      candidateName,
+      officeSought,
+      payeeName,
+      payeeAddress,
+      purpose,
+      amount,
+      expenditureDate,
+      reportType,
+      String(year)
+    );
+    placeholders.push(
+      `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10})`
+    );
+  }
+
+  if (placeholders.length === 0) return { inserted: 0, insertedRows: [] };
+
+  try {
+    const res = await pool.query(
+      `INSERT INTO campaign_expenditures
+         (committee_name, candidate_name, office_sought, payee_name, payee_address, purpose, amount, expenditure_date, report_type, cycle)
+       VALUES ${placeholders.join(',')}
+       ON CONFLICT (committee_name, payee_name, amount, expenditure_date) DO NOTHING
+       RETURNING *`,
+      values
+    );
+    inserted = res.rowCount ?? 0;
+    insertedRows = res.rows;
+  } catch (err) {
+    console.error('[CampaignExpenditureScraper] Batch insert error:', err);
+  }
+
+  return { inserted, insertedRows };
+}
+
 export class CampaignScraper implements Scraper {
   module = 'campaign';
 
@@ -194,5 +333,44 @@ export class CampaignScraper implements Scraper {
     }
 
     console.log(`[CampaignScraper] Done. Total rows: ${totalRows.toLocaleString()} | Inserted: ${totalInserted.toLocaleString()}`);
+  }
+}
+
+export class CampaignExpenditureScraper implements Scraper {
+  module = 'campaign_expenditures';
+
+  async run() {
+    console.log('[CampaignExpenditureScraper] Starting Indiana FCPA expenditure ingest (2000–present)...');
+
+    const currentYear = new Date().getFullYear();
+    let totalInserted = 0;
+    let totalRows = 0;
+
+    for (let year = START_YEAR; year <= currentYear; year++) {
+      const url = `${BASE_URL}/${year}_ExpenditureData.csv.zip`;
+      let yearInserted = 0;
+      let yearRows = 0;
+
+      try {
+        yearRows = await streamExpenditureCsvFromZip(url, async batch => {
+          const { inserted } = await insertExpenditureBatch(batch, year);
+          yearInserted += inserted;
+        });
+      } catch (err) {
+        console.error(`[CampaignExpenditureScraper] Error on year ${year}:`, err);
+        continue;
+      }
+
+      if (yearRows > 0) {
+        console.log(`[CampaignExpenditureScraper] ${year}: ${yearRows.toLocaleString()} rows → ${yearInserted.toLocaleString()} inserted`);
+      }
+
+      totalRows += yearRows;
+      totalInserted += yearInserted;
+
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    console.log(`[CampaignExpenditureScraper] Done. Total rows: ${totalRows.toLocaleString()} | Inserted: ${totalInserted.toLocaleString()}`);
   }
 }

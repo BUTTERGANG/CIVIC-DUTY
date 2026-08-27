@@ -20,6 +20,13 @@ const CITY_META: Record<string, {
     modules: ['council', 'bids', 'zoning', 'campaign', 'court'],
     icon: '🏛️',
   },
+  zionsville: {
+    displayName: 'Zionsville',
+    state: 'IN',
+    description: 'Town of Zionsville — Town Council meetings, agendas, and minutes.',
+    modules: ['council'],
+    icon: '🏘️',
+  },
   indy: {
     displayName: 'Indianapolis',
     state: 'IN',

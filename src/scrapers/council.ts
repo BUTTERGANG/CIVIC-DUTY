@@ -3,7 +3,7 @@ import https from 'https';
 import { Scraper } from './utils';
 import { pool } from '../db';
 import { runAlertEngine } from '../alerts/engine';
-import { processMinutesPdfs, processAgendaPdfs } from './pdf';
+import { processMinutesPdfs, processAgendaPdfs, processPerItemPdfs } from './pdf';
 
 const API_BASE = 'https://fishersin.api.civicclerk.com/v1';
 const API_HEADERS = {
@@ -125,11 +125,13 @@ export class CouncilScraper implements Scraper {
             url: buildFileStreamUrl(f.fileId),
           }));
 
+        const meetingId = (ev as any).agendaId || null;
+
         try {
           const res = await pool.query(
             `INSERT INTO council_votes
-               (event_id, title, date, category, location, status, tags, attached_pdfs)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               (event_id, title, date, category, location, status, tags, attached_pdfs, meeting_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              ON CONFLICT (event_id) DO UPDATE SET
                title         = EXCLUDED.title,
                date          = EXCLUDED.date,
@@ -138,9 +140,10 @@ export class CouncilScraper implements Scraper {
                status        = EXCLUDED.status,
                tags          = EXCLUDED.tags,
                attached_pdfs = EXCLUDED.attached_pdfs,
+               meeting_id    = EXCLUDED.meeting_id,
                scraped_at    = NOW()
              RETURNING id, (xmax = 0) AS is_insert`,
-            [eventId, title, date, category, location, status, tags, JSON.stringify(attachedPdfs)]
+            [eventId, title, date, category, location, status, tags, JSON.stringify(attachedPdfs), meetingId]
           );
 
           if (res.rows[0]?.is_insert) {
@@ -160,6 +163,6 @@ export class CouncilScraper implements Scraper {
     console.log(`[CouncilScraper] Done. Pages: ${pages} | Inserted: ${inserted} | Updated: ${updated}`);
 
     // After syncing events, parse unparsed PDFs (run in parallel)
-    await Promise.all([processMinutesPdfs(), processAgendaPdfs()]);
+    await Promise.all([processMinutesPdfs(), processAgendaPdfs(), processPerItemPdfs()]);
   }
 }

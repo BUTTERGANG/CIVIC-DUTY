@@ -144,7 +144,37 @@ export async function lookupCourtCase(caseNumber: string): Promise<{ source: str
   return res.json();
 }
 
+export interface PartyNameSearchResult {
+  source: string;
+  cases: CourtCase[];
+  hasMore: boolean;
+}
+
+export async function lookupCourtCasesByParty(partyName: string): Promise<PartyNameSearchResult> {
+  const res = await fetch(`${BASE}/court/lookup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ partyName }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? `Party name search failed (${res.status})`);
+  }
+  return res.json();
+}
+
 // --- Council ---
+
+export interface PerItemAttachment {
+  attachmentId: number;
+  outlineNumber: string;
+  name: string;
+  resolution: string;
+  ordinance: string;
+  fileName: string;
+  pdfText: string;
+  pdfUrl: string;
+}
 
 export interface AgendaItem {
   label: string;
@@ -167,6 +197,7 @@ export interface CouncilVote {
   votes: { yes: number; no: number; abstain: number };
   documents: { label: string; url: string }[];
   agendaItems: AgendaItem[];
+  itemAttachments: PerItemAttachment[] | null;
 }
 
 interface CouncilRow {
@@ -183,6 +214,7 @@ interface CouncilRow {
   vote_counts: { yes: number; no: number; abstain: number } | null;
   attached_pdfs: { fileId: number; type: string; label: string; url: string }[] | null;
   agenda_items: AgendaItem[] | null;
+  item_attachments: PerItemAttachment[] | null;
 }
 
 function transformCouncil(row: CouncilRow): CouncilVote {
@@ -200,6 +232,7 @@ function transformCouncil(row: CouncilRow): CouncilVote {
     votes: row.vote_counts ?? { yes: 0, no: 0, abstain: 0 },
     documents: (row.attached_pdfs ?? []).map(f => ({ label: f.label, url: f.url })),
     agendaItems: row.agenda_items ?? [],
+    itemAttachments: row.item_attachments ?? null,
   };
 }
 
@@ -306,6 +339,30 @@ export async function fetchCampaignCandidates(city?: string): Promise<string[]> 
 export async function fetchCampaignOffices(city?: string): Promise<string[]> {
   const qs = city ? `?city=${encodeURIComponent(city)}` : '';
   return get<string[]>(`/campaign/offices${qs}`);
+}
+
+// --- Campaign Expenditures ---
+
+export interface CampaignExpenditure {
+  id: number;
+  city: string;
+  committee_name: string | null;
+  candidate_name: string | null;
+  office_sought: string | null;
+  cycle: string | null;
+  payee_name: string | null;
+  payee_address: string | null;
+  purpose: string | null;
+  amount: number;
+  expenditure_date: string | null;
+  report_type: string | null;
+  source: string;
+  scraped_at: string;
+}
+
+export async function fetchCampaignExpenditures(params: Record<string, string> = {}): Promise<CampaignExpenditure[]> {
+  const qs = new URLSearchParams(params).toString();
+  return get<CampaignExpenditure[]>(`/campaign/expenditures?${qs}`);
 }
 
 // --- Zoning ---
