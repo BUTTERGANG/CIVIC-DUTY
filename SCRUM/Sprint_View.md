@@ -11,10 +11,6 @@
 
 | Task | Agent | Priority | Est. |
 |------|-------|----------|------|
-| Campaign Expenditure Ingestion | 2026-08-26 | **in progress** |
-| Multi-Town CivicEngage Scraper (Zionsville) | 2026-08-26 | **in progress** |
-| CivicClerk Per-Agenda PDFs | 2026-08-26 | **in progress** |
-| MyCase Party Name Search | 2026-08-26 | **in progress** |
 | — | — | — | — |
 
 ---
@@ -23,10 +19,7 @@
 
 | Task File | Priority | Estimate | Status |
 |-----------|----------|----------|--------|
-| `fcpa_expenditure_ingestion.md` | P2 | medium | **not started** |
-| `multitown_civicengage_scraper.md` | P2 | large | **not started** |
-| `civicclerk_agenda_pdfs.md` | P3 | medium | **not started** |
-| `mycase_party_name_search.md` | P3 | medium | **not started** |
+| *All 4 backlog items cleared this sprint* | — | — | **✅ done** |
 
 ---
 
@@ -34,6 +27,10 @@
 
 | Task | Completed |
 |------|-----------|
+| **FCPA Expenditure Ingestion** — scraper + route + UI tab | 2026-08-27 |
+| **Zionsville CivicEngage Scraper** — Playwright council scraper + scheduler | 2026-08-27 |
+| **CivicClerk Per-Agenda PDFs** — per-item attachment extraction via Meeting API | 2026-08-27 |
+| **MyCase Party Name Search** — lookup by name + paginated results | 2026-08-27 |
 | Merge chore/replit-prep → main (10 commits) | 2026-08-26 |
 | Archive 6 Wave 1/Wave 2 backlog items to Archive (now 9 archived total) | 2026-08-26 |
 | Indy public-safety UI pages (5 pages) | 2026-08-19 |
