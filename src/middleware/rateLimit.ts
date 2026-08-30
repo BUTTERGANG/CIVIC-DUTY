@@ -1,7 +1,7 @@
 // src/middleware/rateLimit.ts
 // Rate limiters for the endpoints where an unthrottled caller costs us real
 // resources — CPU, memory, or our standing with an upstream data source.
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 /**
  * Credential endpoints. bcrypt at 12 rounds makes each attempt expensive for
@@ -29,7 +29,8 @@ export const courtLookupLimiter = rateLimit({
   legacyHeaders: false,
   // Per-user, not per-IP: the route requires auth, and several users behind
   // one NAT shouldn't share a quota.
-  keyGenerator: (req) => String(req.user?.userId ?? req.ip),
+  keyGenerator: (req) =>
+    req.user?.userId ? String(req.user.userId) : ipKeyGenerator(req.ip ?? ''),
   message: { error: 'Lookup limit reached (20/hour). Try again later.' },
 });
 

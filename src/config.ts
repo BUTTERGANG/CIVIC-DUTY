@@ -11,10 +11,12 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 /** Values that must be present, with the reason surfaced if they aren't. */
 const REQUIRED: Record<string, string> = {
   DATABASE_URL: 'Postgres connection string (Neon, Replit PG, or local)',
-  JWT_SECRET: 'signing secret for auth tokens — generate 64 random bytes',
+  JWT_SECRET: 'signing secret for auth tokens — generate 64 random bytes (or use SESSION_SECRET)',
 };
 
-const missing = Object.keys(REQUIRED).filter((key) => !process.env[key]);
+const missing = Object.keys(REQUIRED).filter(
+  (key) => !process.env[key] && !(key === 'JWT_SECRET' && process.env.SESSION_SECRET),
+);
 if (missing.length > 0) {
   console.error('[Config] Missing required environment variables:\n');
   for (const key of missing) {
@@ -28,7 +30,7 @@ if (missing.length > 0) {
 export const config = {
   port: Number(process.env.PORT) || 3001,
   databaseUrl: process.env.DATABASE_URL!,
-  jwtSecret: process.env.JWT_SECRET!,
+  jwtSecret: process.env.JWT_SECRET || process.env.SESSION_SECRET!,
   // Cron scrapers must run on exactly one always-on instance. Disable this on
   // Replit Autoscale (which sleeps and scales out) and run the scheduler as a
   // separate Reserved VM deployment instead.

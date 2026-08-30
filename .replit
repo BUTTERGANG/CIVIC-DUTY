@@ -1,6 +1,6 @@
 run = "npm run replit:dev"
 entrypoint = "src/server.ts"
-modules = ["nodejs-20", "web", "bash"]
+modules = ["nodejs-22", "web", "bash", "postgresql-16"]
 
 hidden = ["dist", "node_modules", ".config"]
 
@@ -9,23 +9,39 @@ channel = "stable-25_05"
 
 [env]
 CLAUDE_CONFIG_DIR = "/home/runner/workspace/.local/state/claude"
-PORT = "3333"
-# Use the Nix-provided Chromium (see replit.nix) rather than letting Playwright
-# download its own — that fails against Replit's read-only Nix store.
-# src/scrapers/utils.ts resolves the binary from PATH when this is set.
+PORT = "5000"
 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
-# Cron scrapers must not run on Autoscale (it sleeps, and scales to N
-# instances). Set to "true" only on an always-on Reserved VM deployment.
 ENABLE_SCHEDULER = "false"
 
 [deployment]
-# Reserved VM, not Autoscale: the scheduler needs one always-on process, and
-# the heavy scrapes (Indy parcels ~400K rows, FCPA first run 10-30 min)
-# outlive any Autoscale request.
 deploymentTarget = "vm"
 build = ["sh", "-c", "npm run replit:build"]
 run = ["sh", "-c", "npm start"]
 
 [[ports]]
-localPort = 3333
+localPort = 5000
 externalPort = 80
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run replit:dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
