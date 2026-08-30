@@ -1,11 +1,11 @@
 run = "npm run replit:dev"
 entrypoint = "src/server.ts"
-modules = ["nodejs-22", "postgresql-16"]
+modules = ["nodejs-20", "web", "bash"]
 
 hidden = ["dist", "node_modules", ".config"]
 
 [nix]
-channel = "stable-24_11"
+channel = "stable-25_05"
 
 [env]
 CLAUDE_CONFIG_DIR = "/home/runner/workspace/.local/state/claude"
