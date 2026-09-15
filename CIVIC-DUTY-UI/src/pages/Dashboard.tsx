@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { Link } from 'react-router-dom';
-import { ModuleBadge, AlertCard } from '../components/Shared';
+import { ModuleBadge, AlertCard, ErrorBanner } from '../components/Shared';
 import { ArrowRight, TrendingUp } from 'lucide-react';
 import {
   fetchDashboardSummary, fetchCouncil, fetchBids,
@@ -54,21 +54,36 @@ export default function Dashboard() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [recentCouncil, setRecentCouncil] = useState<CouncilVote[]>([]);
   const [recentBids, setRecentBids] = useState<Bid[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const isIndy = selectedCity === 'indy';
   const statMeta = isIndy ? INDY_STAT_META : FISHERS_STAT_META;
-
-  useEffect(() => {
-    fetchDashboardSummary(selectedCity).then(setSummary).catch(() => {});
-    fetchCouncil({ limit: '2', offset: '0' }).then(setRecentCouncil).catch(() => {});
-    fetchBids({ limit: '3', offset: '0' }).then(setRecentBids).catch(() => {});
-  }, [selectedCity]);
-
   const counts = summary?.counts ?? {
     council: 0, bids: 0, zoning: 0, campaign: 0, court: 0,
     incidents: 0, crashes: 0, citations: 0, useOfForce: 0, serviceRequests: 0,
     parcels: 0, buildings: 0, schools: 0, parks: 0, polling: 0, tax_districts: 0,
   };
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setLoadError(null);
+    // Surface fetch failures via the banner instead of swallowing them,
+    // so 'load failed' is never mistaken for 'no data'.
+    Promise.allSettled([
+      fetchDashboardSummary(selectedCity).then(setSummary),
+      fetchCouncil({ limit: '2', offset: '0' }).then(setRecentCouncil),
+      fetchBids({ limit: '3', offset: '0' }).then(setRecentBids),
+    ]).then(results => {
+      if (!active) return;
+      if (results.some(r => r.status === 'rejected')) {
+        setLoadError('Failed to load dashboard data — try again');
+      }
+      setLoading(false);
+    });
+    return () => { active = false; };
+  }, [selectedCity]);
   const recentAlerts = alerts.slice(0, 3);
 
   return (
@@ -95,6 +110,22 @@ export default function Dashboard() {
           </p>
         </div>
       </div>
+
+      {/* Fetch error banner (distinct from empty state) */}
+      {loadError && (
+        <ErrorBanner message={loadError} onRetry={() => {
+          // Re-trigger the fetch effect by cycling selectedCity through a no-op
+          setLoading(true); setLoadError(null);
+          Promise.allSettled([
+            fetchDashboardSummary(selectedCity).then(setSummary),
+            fetchCouncil({ limit: '2', offset: '0' }).then(setRecentCouncil),
+            fetchBids({ limit: '3', offset: '0' }).then(setRecentBids),
+          ]).then(results => {
+            if (results.some(r => r.status === 'rejected')) setLoadError('Failed to load dashboard data — try again');
+            setLoading(false);
+          });
+        }} />
+      )}
 
       {/* Stat Cards */}
       <div className={`grid gap-4 ${isIndy ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6'}`}>
@@ -141,33 +172,45 @@ export default function Dashboard() {
           </div>
 
           <div className="glass-card divide-y divide-white/[0.04]">
-            {recentBids.map(b => (
-              <div key={b.id} className="p-5 hover:bg-white/[0.02] transition-colors group cursor-pointer">
-                <div className="flex items-center gap-2.5 mb-2.5">
-                  <ModuleBadge module="bids" />
-                  {b.posted_date && <span className="text-[11px] text-slate-600 font-mono">{formatDate(b.posted_date)}</span>}
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="p-5">
+                  <div className="skeleton skeleton-text w-24 mb-2.5" />
+                  <div className="skeleton skeleton-title mb-2" />
+                  <div className="skeleton h-3 w-32 rounded" />
                 </div>
-                <p className="font-semibold text-slate-200 leading-snug group-hover:text-primary transition-colors duration-200">{b.title}</p>
-                {b.agency && (
-                  <div className="text-sm text-slate-500 mt-1.5 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/60 shrink-0" />
-                    {b.agency}
+              ))
+            ) : (
+              <>
+                {recentBids.map(b => (
+                  <div key={b.id} className="p-5 hover:bg-white/[0.02] transition-colors group cursor-pointer">
+                    <div className="flex items-center gap-2.5 mb-2.5">
+                      <ModuleBadge module="bids" />
+                      {b.posted_date && <span className="text-[11px] text-slate-600 font-mono">{formatDate(b.posted_date)}</span>}
+                    </div>
+                    <p className="font-semibold text-slate-200 leading-snug group-hover:text-primary transition-colors duration-200">{b.title}</p>
+                    {b.agency && (
+                      <div className="text-sm text-slate-500 mt-1.5 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/60 shrink-0" />
+                        {b.agency}
+                      </div>
+                    )}
                   </div>
+                ))}
+                {recentCouncil.map(c => (
+                  <div key={c.id} className="p-5 hover:bg-white/[0.02] transition-colors group cursor-pointer">
+                    <div className="flex items-center gap-2.5 mb-2.5">
+                      <ModuleBadge module="council" />
+                      <span className="text-[11px] text-slate-600 font-mono">{formatDate(c.date)}</span>
+                    </div>
+                    <p className="font-semibold text-slate-200 leading-snug group-hover:text-primary transition-colors duration-200">{c.title}</p>
+                    {c.summary && <p className="text-sm text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{c.summary}</p>}
+                  </div>
+                ))}
+                {recentBids.length === 0 && recentCouncil.length === 0 && !loadError && (
+                  <div className="p-8 text-center text-slate-600 text-sm">No recent items — run the scrapers to populate data.</div>
                 )}
-              </div>
-            ))}
-            {recentCouncil.map(c => (
-              <div key={c.id} className="p-5 hover:bg-white/[0.02] transition-colors group cursor-pointer">
-                <div className="flex items-center gap-2.5 mb-2.5">
-                  <ModuleBadge module="council" />
-                  <span className="text-[11px] text-slate-600 font-mono">{formatDate(c.date)}</span>
-                </div>
-                <p className="font-semibold text-slate-200 leading-snug group-hover:text-primary transition-colors duration-200">{c.title}</p>
-                {c.summary && <p className="text-sm text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">{c.summary}</p>}
-              </div>
-            ))}
-            {recentBids.length === 0 && recentCouncil.length === 0 && (
-              <div className="p-8 text-center text-slate-600 text-sm">No recent items — run the scrapers to populate data.</div>
+              </>
             )}
           </div>
         </div>

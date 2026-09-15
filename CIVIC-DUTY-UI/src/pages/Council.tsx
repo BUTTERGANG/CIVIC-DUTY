@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { ModuleBadge, StatusChip, DocumentList, EmptyState } from '../components/Shared';
+import { ModuleBadge, StatusChip, DocumentList, EmptyState, ErrorBanner } from '../components/Shared';
 import { Search, SlidersHorizontal, ChevronDown, ChevronRight, FileText, Clock, ExternalLink } from 'lucide-react';
 import { fetchCouncil, CouncilVote, AgendaItem } from '../api';
 import { formatDate, latestTimestamp, timeAgo } from '../lib/format';
@@ -292,9 +292,12 @@ export default function Council() {
       </div>
 
       {/* Table */}
+      {error && !loading && (
+        <ErrorBanner message={`Failed to load data — ${error}`} />
+      )}
       <div className="glass-card overflow-x-auto">
         {error && !loading ? (
-          <EmptyState title="Failed to load" message="Could not fetch council events. Please try again later." />
+          <EmptyState title="Load failed" message="Could not fetch council events. No records are shown while the source is unavailable." />
         ) : filtered.length === 0 && !loading ? (
           <EmptyState title="No votes found" message="Try adjusting your search or tag filter." />
         ) : (

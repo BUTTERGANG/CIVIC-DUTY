@@ -111,6 +111,27 @@ export const EmptyState = ({ title, message }: { title: string; message: string 
   </div>
 );
 
+/* ── Fetch Error Banner ──
+   Rendered when a data fetch rejects, so users can always tell
+   'load failed' apart from the empty-data EmptyState. */
+export const ErrorBanner = ({
+  message = 'Failed to load data — try again',
+  onRetry,
+}: { message?: string; onRetry?: () => void }) => (
+  <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-danger/30 bg-danger/10 text-danger-200">
+    <AlertTriangle size={16} className="shrink-0 text-danger" />
+    <span className="text-sm font-medium flex-1">{message}</span>
+    {onRetry && (
+      <button
+        onClick={onRetry}
+        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-danger/25 hover:bg-danger/40 border border-danger/40 transition-all duration-200 animate-pulse"
+      >
+        Retry
+      </button>
+    )}
+  </div>
+);
+
 /* ── Alert Card ── */
 export interface AlertCardItem {
   id: string;
@@ -225,18 +246,36 @@ export const NavBar = ({ unreadCount, user, onLogout }: {
   onLogout?: () => void;
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
 
-  // Close mobile nav on route change
+  // Close mobile nav + More menu on route change
   useEffect(() => {
     setMobileOpen(false);
+    setMoreOpen(false);
   }, [location.pathname]);
 
-  const links = [
+  // Close More dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Most-used modules stay top-level; the long-tail GIS/admin modules
+  // are folded under a 'More ▾' dropdown to de-clutter the primary rail.
+  const primaryLinks = [
     { to: '/', icon: <Activity size={16} />, label: 'Dashboard' },
+    { to: '/zoning', icon: <Map size={16} />, label: 'Zoning' },
     { to: '/council', icon: <Landmark size={16} />, label: 'Council' },
     { to: '/bids', icon: <FileCheck size={16} />, label: 'Bids' },
-    { to: '/zoning', icon: <Map size={16} />, label: 'Zoning' },
+  ];
+  const moreLinks = [
     { to: '/campaign', icon: <TrendingUp size={16} />, label: 'Campaign' },
     { to: '/court', icon: <Gavel size={16} />, label: 'Court' },
     { to: '/parcels', icon: <Home size={16} />, label: 'Parcels' },
@@ -259,6 +298,7 @@ export const NavBar = ({ unreadCount, user, onLogout }: {
     { to: '/property-assessments', icon: <DollarSign size={16} />, label: 'Assessments' },
     { to: '/zoning-variances', icon: <Scale size={16} />, label: 'Zoning Variances' },
   ];
+  const links = [...primaryLinks, ...moreLinks];
 
   return (
     <>
@@ -280,7 +320,7 @@ export const NavBar = ({ unreadCount, user, onLogout }: {
 
           {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center gap-0.5 overflow-x-auto no-scrollbar mask-edges">
-            {links.map(l => (
+            {primaryLinks.map(l => (
               <NavLink
                 key={l.to}
                 to={l.to}
@@ -307,6 +347,47 @@ export const NavBar = ({ unreadCount, user, onLogout }: {
                 )}
               </NavLink>
             ))}
+
+            {/* More dropdown */}
+            <div ref={moreRef} className="relative">
+              <button
+                onClick={() => setMoreOpen(o => !o)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap border group',
+                  moreOpen
+                    ? 'text-white bg-white/[0.07] border-white/[0.08]'
+                    : 'text-slate-500 hover:text-slate-200 hover:bg-white/[0.04] border-transparent'
+                )}
+              >
+                <span className={cn('transition-colors', moreOpen ? 'text-primary' : 'text-slate-500 group-hover:text-slate-300')}><Menu size={16} /></span>
+                <span className="hidden lg:inline">More</span>
+                <ChevronDown size={13} className={cn('transition-transform duration-200', moreOpen && 'rotate-180')} />
+              </button>
+
+              {moreOpen && (
+                <div className="absolute top-full right-0 mt-2 w-60 bg-surface/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl shadow-2xl z-[100] overflow-hidden animate-slide-up">
+                  <div className="p-2 grid grid-cols-1">
+                    {moreLinks.map(l => (
+                      <NavLink
+                        key={l.to}
+                        to={l.to}
+                        className={({ isActive }) =>
+                          cn(
+                            'flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200',
+                            isActive
+                              ? 'text-white bg-primary/10 border border-primary/25'
+                              : 'text-slate-400 hover:text-white hover:bg-white/[0.05] border border-transparent'
+                          )
+                        }
+                      >
+                        {l.icon}
+                        {l.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right side */}
