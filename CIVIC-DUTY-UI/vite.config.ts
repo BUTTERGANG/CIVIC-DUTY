@@ -9,7 +9,9 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/api': 'http://localhost:3333',
+      // Dev proxy → the real Express backend (ts-node src/server.ts). Override
+      // with VITE_API_PROXY=http://host:port if the backend runs elsewhere.
+      '/api': process.env.VITE_API_PROXY || 'http://localhost:3001',
     },
   },
 })
