@@ -111,8 +111,8 @@ export default function Dashboard() {
               </p>
             </div>
             {/* Sparkline */}
-            <div className="absolute bottom-0 left-0 right-0 h-14 opacity-50 group-hover:opacity-90 transition-opacity duration-500">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="absolute bottom-0 left-0 right-0 h-14 opacity-50 group-hover:opacity-90 transition-opacity duration-500 pointer-events-none" aria-hidden="true">
+              <ResponsiveContainer width="100%" height={56}>
                 <AreaChart data={SPARKLINES[i]} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                   <defs>
                     <linearGradient id={`sg${i}`} x1="0" y1="0" x2="0" y2="1">
