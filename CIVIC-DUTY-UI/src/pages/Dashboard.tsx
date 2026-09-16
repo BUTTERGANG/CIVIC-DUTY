@@ -140,13 +140,13 @@ export default function Dashboard() {
           >
             <div className="relative z-10 mb-4">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-1">{c.label}</p>
+                <p className="text-[12px] font-semibold uppercase tracking-widest text-slate-400 mb-1">{c.label}</p>
                 {provisioned ? (
-                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-success bg-success/10 border border-success/25 px-1.5 rounded">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-success bg-success/10 border border-success/25 px-1.5 rounded">
                     <span className="w-1 h-1 rounded-full bg-success animate-pulse" />Live
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-white/[0.04] border border-white/[0.08] px-1.5 rounded">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 bg-white/[0.04] border border-white/[0.08] px-1.5 rounded">
                     Awaiting data
                   </span>
                 )}

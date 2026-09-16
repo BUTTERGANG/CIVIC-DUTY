@@ -155,7 +155,7 @@ export const AlertCard = ({ alert, onRead }: { alert: AlertCardItem; onRead?: (i
   >
     <div className="flex justify-between items-start mb-3">
       <ModuleBadge module={alert.module} />
-      <span className="text-[10px] text-slate-600 font-mono tracking-wide">
+      <span className="text-[11px] text-slate-600 font-mono tracking-wide">
         {new Date(alert.created_at).toLocaleString()}
       </span>
     </div>
@@ -164,7 +164,7 @@ export const AlertCard = ({ alert, onRead }: { alert: AlertCardItem; onRead?: (i
     </p>
     <div className="mt-4 flex items-center justify-end text-xs pt-3 border-t border-white/[0.05]">
       {!alert.read && (
-        <div className="flex items-center gap-1.5 text-primary text-[10px] font-bold uppercase tracking-wider">
+        <div className="flex items-center gap-1.5 text-primary text-[11px] font-bold uppercase tracking-wider">
           <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse shadow-glow-primary" />
           {onRead ? 'Click to dismiss' : 'Live'}
         </div>
