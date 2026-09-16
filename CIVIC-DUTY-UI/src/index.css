@@ -66,6 +66,33 @@
 /* ── Base Layer ── */
 html { scroll-behavior: smooth; }
 
+/* ── Light theme: flip the cool navy-black tokens to a light set when
+   <html data-theme="light"> is set by the nav toggle. Surfaces stay cool
+   (blue-tinted grays) so the accent palette reads the same. ── */
+html[data-theme="light"] {
+  --color-background: #f3f6f9;
+  --color-surface: #e9eef5;
+  --color-surface-highlight: #dde4ef;
+  --color-surface-bright: #cbd6e6;
+  --color-primary: #2a7fe0;
+  --color-primary-dark: #1a5cb0;
+  --color-primary-glow: #6db2ff;
+  --color-accent: #6a4fd6;
+  --color-success: #0f9c5a;
+  --color-warning: #d9821c;
+  --color-danger: #d63b4d;
+}
+html[data-theme="light"] body {
+  color: rgb(30 41 59); /* slate-800 */
+}
+html[data-theme="light"] input,
+html[data-theme="light"] select,
+html[data-theme="light"] textarea {
+  color-scheme: light;
+  color: rgb(30 41 59);
+}
+html[data-theme="light"] select option { background: var(--color-surface); }
+
 body {
   background-color: var(--color-background);
   color: rgb(203 213 225); /* slate-300 */

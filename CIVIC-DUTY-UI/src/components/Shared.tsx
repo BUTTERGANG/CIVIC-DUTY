@@ -1,9 +1,10 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, Map, TrendingUp, LogOut, Menu, X, ChevronDown, Home, Building2, GraduationCap, Trees, Vote, Landmark as TaxIcon, Shield, Car, FileText as CitationIcon, AlertTriangle, Wrench, Phone, AlertTriangle as VzIcon, Church, Baby, User, DollarSign, Scale } from 'lucide-react';
+import { Bell, FileText, Search, Activity, Landmark, Gavel, FileCheck, Map, TrendingUp, LogOut, Menu, X, ChevronDown, Home, Building2, GraduationCap, Trees, Vote, Landmark as TaxIcon, Shield, Car, FileText as CitationIcon, AlertTriangle, Wrench, Phone, AlertTriangle as VzIcon, Church, Baby, User, DollarSign, Scale, Sun, Moon } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useState, useEffect, useRef } from 'react';
 import { useCity } from '../context/CityContext';
+import { getTheme, setTheme, type Theme } from '../lib/theme';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -247,8 +248,14 @@ export const NavBar = ({ unreadCount, user, onLogout }: {
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [theme, setThemeState] = useState<Theme>(getTheme());
   const moreRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setThemeState(setTheme(next));
+  };
 
   // Close mobile nav + More menu on route change
   useEffect(() => {
@@ -407,6 +414,16 @@ export const NavBar = ({ unreadCount, user, onLogout }: {
                 </button>
               </div>
             )}
+
+            {/* Theme toggle (desktop + mobile) */}
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              className="p-2.5 rounded-xl text-slate-500 hover:text-white hover:bg-white/[0.05] border border-transparent hover:border-white/[0.08] transition-all duration-200 shrink-0"
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+            </button>
 
             {/* Alerts Bell */}
             <NavLink
