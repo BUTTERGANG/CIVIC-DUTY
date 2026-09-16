@@ -200,6 +200,10 @@ export default function Council() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterTag, setFilterTag] = useState('');
+  const [sortKey, setSortKey] = useState<'date' | 'title' | 'yes' | 'no'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -243,6 +247,34 @@ export default function Council() {
 
   const allTags = useMemo(() => Array.from(new Set(data.flatMap(d => d.tags))), [data]);
 
+  // Client-side sort applied on top of the (tag) filter.
+  const sorted = useMemo(() => {
+    const arr = [...filtered];
+    const dir = sortDir === 'asc' ? 1 : -1;
+    arr.sort((a, b) => {
+      switch (sortKey) {
+        case 'title': return a.title.localeCompare(b.title) * dir;
+        case 'yes': return (a.votes.yes - b.votes.yes) * dir;
+        case 'no': return (a.votes.no - b.votes.no) * dir;
+        case 'date':
+        default: return (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) * dir;
+      }
+    });
+    return arr;
+  }, [filtered, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const safePage = Math.min(page, totalPages - 1);
+  const paged = sorted.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const setPageSizeSafe = (n: number) => { setPageSize(n); setPage(0); };
+
+  const toggleSort = (key: typeof sortKey) => {
+    if (sortKey === key) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir(key === 'title' ? 'asc' : 'desc'); }
+  };
+  const sortIcon = (key: typeof sortKey) =>
+    sortKey === key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
+
   return (
     <div className="space-y-6 animate-slide-up">
       {/* Header */}
@@ -281,7 +313,7 @@ export default function Council() {
       {/* Status bar */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-slate-600 font-mono">
-          {loading ? 'Loading…' : error ? `Error: ${error}` : `${filtered.length} of ${data.length} records`}
+          {loading ? 'Loading…' : error ? `Error: ${error}` : `${sorted.length} of ${data.length} records`}
         </div>
         {!loading && lastUpdated && (
           <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
@@ -298,15 +330,15 @@ export default function Council() {
       <div className="glass-card overflow-x-auto">
         {error && !loading ? (
           <EmptyState title="Load failed" message="Could not fetch council events. No records are shown while the source is unavailable." />
-        ) : filtered.length === 0 && !loading ? (
+        ) : sorted.length === 0 && !loading ? (
           <EmptyState title="No votes found" message="Try adjusting your search or tag filter." />
         ) : (
           <table className="data-table">
             <thead>
               <tr>
-                <th>Date &amp; Title</th>
+                <th className="cursor-pointer select-none hover:text-slate-300 transition-colors" onClick={() => toggleSort('date')}>Date &amp; Title{sortIcon('date')}</th>
                 <th>Status</th>
-                <th>Votes</th>
+                <th className="cursor-pointer select-none hover:text-slate-300 transition-colors" onClick={() => toggleSort('yes')}>Votes{sortIcon('yes')}</th>
                 <th className="hidden md:table-cell">Tags</th>
                 <th className="text-right">Docs</th>
               </tr>
@@ -315,7 +347,7 @@ export default function Council() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => <SkeletonRow key={i} />)
               ) : (
-                filtered.map(v => (
+                paged.map(v => (
                   <CouncilRow key={v.id} v={v} filterTag={filterTag} setFilterTag={setFilterTag} />
                 ))
               )}
@@ -323,6 +355,41 @@ export default function Council() {
           </table>
         )}
       </div>
+
+      {/* Pagination controls */}
+      {!loading && !error && sorted.length > 0 && (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="font-mono">Page {safePage + 1} of {totalPages}</span>
+            <span className="text-slate-700">·</span>
+            <span className="font-mono">{sorted.length} shown</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-slate-600 uppercase tracking-widest">Per page</label>
+            <select
+              className="select-field w-20"
+              value={String(pageSize)}
+              onChange={e => setPageSizeSafe(Number(e.target.value))}
+            >
+              {[5, 10, 25, 50].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <button
+              className="btn-secondary h-9 px-3 disabled:opacity-40"
+              disabled={safePage === 0}
+              onClick={() => setPage(safePage - 1)}
+            >
+              ‹ Prev
+            </button>
+            <button
+              className="btn-secondary h-9 px-3 disabled:opacity-40"
+              disabled={safePage >= totalPages - 1}
+              onClick={() => setPage(safePage + 1)}
+            >
+              Next ›
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -56,10 +56,17 @@ export default function Bids() {
   const [filterAgency, setFilterAgency] = useState('');
   const [filterMinValue, setFilterMinValue] = useState('');
   const [filterMaxValue, setFilterMaxValue] = useState('');
+  const [sortKey, setSortKey] = useState<'posted_date' | 'value' | 'title'>('posted_date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(6);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   const debouncedMinValue = useDebounce(filterMinValue, 500);
   const debouncedMaxValue = useDebounce(filterMaxValue, 500);
+
+  // Reset to first page whenever filters change.
+  useEffect(() => { setPage(0); }, [filterStatus, filterAgency, debouncedMinValue, debouncedMaxValue]);
 
   useEffect(() => {
     setLoading(true);
@@ -83,6 +90,28 @@ export default function Bids() {
   }, [filterStatus, filterAgency, debouncedMinValue, debouncedMaxValue, showError]);
 
   const agencies = useMemo(() => Array.from(new Set(data.map(b => b.agency).filter(Boolean))), [data]);
+
+  // Client-side sort on top of the fetched (filtered) set.
+  const sorted = useMemo(() => {
+    const arr = [...data];
+    const dir = sortDir === 'asc' ? 1 : -1;
+    arr.sort((a, b) => {
+      switch (sortKey) {
+        case 'title': return (a.title ?? '').localeCompare(b.title ?? '') * dir;
+        case 'value':
+          return ((a.value_estimate ?? -1) - (b.value_estimate ?? -1)) * dir;
+        case 'posted_date':
+        default:
+          return ((a.posted_date ?? '').localeCompare(b.posted_date ?? '')) * dir;
+      }
+    });
+    return arr;
+  }, [data, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  const safePage = Math.min(page, totalPages - 1);
+  const paged = sorted.slice(safePage * pageSize, safePage * pageSize + pageSize);
+  const setPageSizeSafe = (n: number) => { setPageSize(n); setPage(0); };
 
   return (
     <div className="space-y-6 animate-slide-up">
@@ -122,13 +151,33 @@ export default function Bids() {
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none text-xs">$</span>
             <input type="number" placeholder="Max Value" className="input-field pl-6 w-32" onChange={e => setFilterMaxValue(e.target.value)} />
           </div>
+          <div className="relative">
+            <SlidersHorizontal size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+            <select
+              className="select-field pl-8 w-44"
+              value={`${sortKey}:${sortDir}`}
+              onChange={e => {
+                const [k, d] = e.target.value.split(':');
+                setSortKey(k as 'posted_date' | 'value' | 'title');
+                setSortDir(d as 'asc' | 'desc');
+                setPage(0);
+              }}
+            >
+              <option value="posted_date:desc">Newest posted</option>
+              <option value="posted_date:asc">Oldest posted</option>
+              <option value="value:desc">Value: high → low</option>
+              <option value="value:asc">Value: low → high</option>
+              <option value="title:asc">Title A → Z</option>
+              <option value="title:desc">Title Z → A</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Status bar */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-slate-600 font-mono">
-          {loading ? 'Loading…' : error ? `Error: ${error}` : `${data.length} records`}
+          {loading ? 'Loading…' : error ? `Error: ${error}` : `${sorted.length} records`}
         </div>
         {!loading && lastUpdated && (
           <div className="flex items-center gap-1.5 text-[11px] text-slate-600">
@@ -143,10 +192,11 @@ export default function Bids() {
       ) : !loading && data.length === 0 ? (
         <EmptyState title="No bids found" message="Try adjusting your filters, or the scraper may not have run yet." />
       ) : (
+        <>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
           {loading
             ? Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)
-            : data.map(b => {
+            : paged.map(b => {
                 const [cardClass, glowColor] = STATUS_COLORS[b.status] ?? STATUS_COLORS.closed;
                 return (
                   <div key={b.id} className={`glass-card p-0 flex flex-col overflow-hidden border ${cardClass} transition-all duration-300 hover:-translate-y-0.5`}>
@@ -200,6 +250,39 @@ export default function Bids() {
                 );
               })}
         </div>
+        {/* Pagination controls */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="font-mono">Page {safePage + 1} of {totalPages}</span>
+            <span className="text-slate-700">·</span>
+            <span className="font-mono">{sorted.length} bids</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-slate-600 uppercase tracking-widest">Per page</label>
+            <select
+              className="select-field w-20"
+              value={String(pageSize)}
+              onChange={e => setPageSizeSafe(Number(e.target.value))}
+            >
+              {[3, 6, 12, 24].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <button
+              className="btn-secondary h-9 px-3 disabled:opacity-40"
+              disabled={safePage === 0}
+              onClick={() => setPage(safePage - 1)}
+            >
+              ‹ Prev
+            </button>
+            <button
+              className="btn-secondary h-9 px-3 disabled:opacity-40"
+              disabled={safePage >= totalPages - 1}
+              onClick={() => setPage(safePage + 1)}
+            >
+              Next ›
+            </button>
+          </div>
+        </div>
+        </>
       )}
     </div>
   );

@@ -129,17 +129,37 @@ export default function Dashboard() {
 
       {/* Stat Cards */}
       <div className={`grid gap-4 ${isIndy ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-6' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6'}`}>
-        {statMeta.map((c, i) => (
+        {statMeta.map((c, i) => {
+          const count = counts[c.key as keyof typeof counts] ?? 0;
+          const provisioned = count > 0;
+          return (
           <Link
             key={c.key}
             to={c.link}
-            className={`glass-card stat-card bg-gradient-to-b ${c.bg} border border-white/[0.06] ${c.border} group cursor-pointer`}
+            className={`glass-card stat-card bg-gradient-to-b ${c.bg} border border-white/[0.06] ${provisioned ? c.border : 'opacity-75'} group cursor-pointer`}
           >
             <div className="relative z-10 mb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-2">{c.label}</p>
-              <p className="text-4xl font-display font-bold transition-transform duration-300 group-hover:scale-105 origin-left" style={{ color: c.color }}>
-                {counts[c.key as keyof typeof counts] ?? 0}
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500 mb-1">{c.label}</p>
+                {provisioned ? (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-success bg-success/10 border border-success/25 px-1.5 rounded">
+                    <span className="w-1 h-1 rounded-full bg-success animate-pulse" />Live
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-500 bg-white/[0.04] border border-white/[0.08] px-1.5 rounded">
+                    Awaiting data
+                  </span>
+                )}
+              </div>
+              {provisioned ? (
+                <p className="text-4xl font-display font-bold transition-transform duration-300 group-hover:scale-105 origin-left" style={{ color: c.color }}>
+                  {count}
+                </p>
+              ) : (
+                <p className="text-2xl font-display font-light text-slate-600 italic">
+                  Not seeded yet
+                </p>
+              )}
             </div>
             {/* Sparkline */}
             <div className="absolute bottom-0 left-0 right-0 h-14 opacity-50 group-hover:opacity-90 transition-opacity duration-500 pointer-events-none" aria-hidden="true">
@@ -156,7 +176,8 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
           </Link>
-        ))}
+          );
+        })}
       </div>
 
       {/* Main Feed + Alerts */}
