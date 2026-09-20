@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { pool } from '../db';
 import { sendError } from '../lib/http';
+import { resolveZip } from '../data/zip-cities';
 
 const router = Router();
 
@@ -70,6 +71,37 @@ router.get('/', async (_req, res) => {
     res.json({ cities });
   } catch (err) {
     sendError(res, err, 'Cities');
+  }
+});
+
+// GET /api/cities/zip/:zip — resolve a ZIP code to the closest covered municipality
+router.get('/zip/:zip', (req, res) => {
+  try {
+    const zip = (req.params.zip || '').trim();
+    const match = resolveZip(zip);
+
+    if (!match.isCovered || !match.cityId) {
+      res.status(404).json({
+        zip: zip.replace(/\D/g, ''),
+        isCovered: false,
+        error: match.note ?? "This ZIP isn't covered yet. Try Fishers (46037/46038) or Indianapolis (462xx).",
+        suggestedCityId: match.suggestedCityId ?? null,
+      });
+      return;
+    }
+
+    const meta = CITY_META[match.cityId];
+    res.json({
+      zip: zip.replace(/\D/g, ''),
+      cityId: match.cityId,
+      municipality: match.municipality,
+      displayName: meta?.displayName ?? match.displayName,
+      state: meta?.state ?? match.state,
+      isCovered: true,
+      note: match.note ?? null,
+    });
+  } catch (err) {
+    sendError(res, err, 'Cities.byZip');
   }
 });
 

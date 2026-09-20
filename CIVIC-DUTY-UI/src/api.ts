@@ -61,6 +61,33 @@ export async function apiMe(): Promise<AuthUser> {
   return get<AuthUser>('/auth/me');
 }
 
+// --- Cities / ZIP lookup ---
+
+export interface ZipCityLookup {
+  zip: string;
+  cityId: string;
+  municipality: string;
+  displayName: string;
+  state: string;
+  isCovered: boolean;
+  note: string | null;
+}
+
+/**
+ * Resolve a 5-digit ZIP to the closest covered municipality board.
+ * Returns the resolved city on a covered hit; throws with a clear message on
+ * a known-miss (404) or any other failure, so callers show an inline hint.
+ */
+export async function lookupCityByZip(zip: string): Promise<ZipCityLookup> {
+  const res = await fetch(`${BASE}/cities/zip/${encodeURIComponent(zip)}`, { headers: authHeaders() });
+  if (res.status === 404) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? 'This ZIP is not covered yet.');
+  }
+  if (!res.ok) throw new Error(`ZIP lookup failed (${res.status})`);
+  return res.json();
+}
+
 export interface AlertRule {
   id: number;
   user_id: string;

@@ -4,6 +4,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useState, useEffect, useRef } from 'react';
 import { useCity } from '../context/CityContext';
+import { lookupCityByZip } from '../api';
 import { getTheme, setTheme, type Theme } from '../lib/theme';
 
 export function cn(...inputs: ClassValue[]) {
@@ -179,6 +180,32 @@ export const CitySelector = () => {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
+  // ZIP → municipality finder state
+  const [zip, setZip] = useState('');
+  const [zipStatus, setZipStatus] = useState<'idle' | 'loading' | 'found' | 'miss'>('idle');
+  const [foundName, setFoundName] = useState('');
+  const [foundMunicipality, setFoundMunicipality] = useState('');
+  const [zipNote, setZipNote] = useState('');
+  const [missMessage, setMissMessage] = useState('');
+
+  const lookupZip = async () => {
+    if (zip.length !== 5 || zipStatus === 'loading') return;
+    setZipStatus('loading');
+    try {
+      const data = await lookupCityByZip(zip);
+      setFoundName(data.displayName);
+      setFoundMunicipality(data.municipality);
+      setZipNote(data.note ?? '');
+      setZipStatus('found');
+      // Switch the board to the resolved city, then close the dropdown.
+      setSelectedCity(data.cityId);
+      setOpen(false);
+    } catch (err) {
+      setMissMessage(err instanceof Error ? err.message : "Couldn't reach the lookup service — try again.");
+      setZipStatus('miss');
+    }
+  };
+
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -207,7 +234,52 @@ export const CitySelector = () => {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 w-56 bg-surface/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl shadow-2xl z-[100] overflow-hidden animate-slide-up">
+        <div className="absolute top-full left-0 mt-2 w-64 bg-surface/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl shadow-2xl z-[100] overflow-hidden animate-slide-up">
+          {/* Find my town by ZIP */}
+          <div className="p-2.5 pb-2 border-b border-white/[0.06]">
+            <div className="text-[10px] font-display font-bold uppercase tracking-widest text-slate-600 mb-1.5 px-1">
+              Find my town
+            </div>
+            <div className="flex gap-1.5">
+              <input
+                value={zip}
+                onChange={e => {
+                  setZip(e.target.value.replace(/\D/g, '').slice(0, 5));
+                  if (zipStatus !== 'idle') setZipStatus('idle');
+                }}
+                onKeyDown={e => { if (e.key === 'Enter') lookupZip(); }}
+                maxLength={5}
+                inputMode="numeric"
+                placeholder="ZIP — e.g. 46037"
+                className="w-full px-2.5 py-1.5 rounded-lg bg-background/60 border border-white/[0.08] text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary/40 font-mono"
+              />
+              <button
+                onClick={lookupZip}
+                disabled={zip.length !== 5 || zipStatus === 'loading'}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-primary/15 text-primary border border-primary/25 hover:bg-primary/25 hover:text-white text-xs font-semibold transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {zipStatus === 'loading' ? '…' : 'Go'}
+              </button>
+            </div>
+            {zipStatus === 'found' && (
+              <div className="mt-2 px-1 text-[11px] text-success flex items-start gap-1 leading-snug">
+                <span className="mt-px shrink-0">✓</span>
+                <span>
+                  Showing <span className="font-semibold text-white">{foundName}</span>
+                  {foundMunicipality !== foundName && <span> for {foundMunicipality}</span>}.{zipNote && (
+                    <span className="text-slate-500"> {zipNote}</span>
+                  )}
+                </span>
+              </div>
+            )}
+            {zipStatus === 'miss' && (
+              <div className="mt-2 px-1 text-[11px] text-danger-200 flex items-start gap-1 leading-snug">
+                <AlertTriangle size={11} className="mt-0.5 shrink-0 text-danger" />
+                <span>{missMessage}</span>
+              </div>
+            )}
+          </div>
+
           <div className="p-2">
             {cities.map(city => (
               <button
